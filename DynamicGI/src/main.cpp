@@ -1,13 +1,16 @@
 #include <iostream>
 #include <string>
-#include <gl/glew.h>
+
+#include <GL/glew.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include "window.h"
 #include "GL_CALL.h"
 #include "mesh_loader.h"
 #include "camera.h"
 #include "shader.h"
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include "Quad.h"
 #include "framebuffer.h"
 

@@ -1,9 +1,12 @@
 #pragma once
 
 #include <iostream>
-#include <gl/glew.h>
-#include <GLM/glm.hpp>
 #include <vector>
+
+#include <GL/glew.h>
+
+#include <glm/glm.hpp>
+
 #include "shader.h"
 
 

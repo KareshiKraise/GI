@@ -1,27 +1,26 @@
 #pragma once
 
-#include <gl/glew.h>
+#include <GL/glew.h>
 #include <iostream>
-
 
 //Nota para o professor: as macros a seguir são para debug e error testing no windows apenas, nao ha necessidade de alterar nada
 //Elas serao desativadas automaticamente durante compilacao em outro sistema
 
 #ifdef _MSC_VER
-#define ASSERT(x) if (!(x)) __debugbreak();
-#else
+	#define ASSERT(x) if (!(x)) __debugbreak();
+//#else
 //#include <csignal>
 //#define ASSERT(x) std::raise(SIGINT);
 #endif
 
 #define DEBUG
 
-#ifdef DEBUG
-#define GLCall(x) GLClearError(); \
+#if defined(DEBUG) && defined(_MSC_VER)
+	#define GLCall(x) GLClearError(); \
 	x;\
 	ASSERT(GLLogCall(#x, __FILE__, __LINE__))
 #else
-#define GLCall(x) x
+	#define GLCall(x) x
 #endif
 
 #define DRAW_TEST_TRI glBegin(GL_TRIANGLES); \
