@@ -9,6 +9,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 
+
+#include <vector>
+#include <iostream>
+
+
+
 // Defines several possible options for camera movement. Used as abstraction to stay away from window-system specific input methods
 enum Camera_Movement {
 	FORWARD,
@@ -23,6 +29,7 @@ const float PITCH = 0.0f;
 const float SPEED = 1.5f;
 const float SENSITIVTY = 0.1f;
 const float ZOOM = 60.0f;
+
 
 
 // An abstract camera class that processes input and calculates the corresponding Eular Angles, Vectors and Matrices for use in OpenGL
@@ -116,6 +123,26 @@ public:
 			Zoom = 45.0f;
 	}
 
+	void print_camera_coords() {
+		std::cout << "camera front vector" << std::endl;
+		std::cout << Front.x << std::endl;
+		std::cout << Front.y << std::endl;
+		std::cout << Front.z << std::endl;
+		std::cout << "camera up vector" << std::endl;
+		std::cout << Up.x << std::endl;
+		std::cout << Up.y << std::endl;
+		std::cout << Up.z << std::endl;
+		std::cout << "camera right vector" << std::endl;
+		std::cout << Right.x << std::endl;
+		std::cout << Right.y << std::endl;
+		std::cout << Right.z << std::endl;
+		std::cout << "camera Pos" << std::endl;
+		std::cout << Position.x << std::endl;
+		std::cout << Position.y << std::endl;
+		std::cout << Position.z << std::endl;
+
+	}
+
 private:
 	// Calculates the front vector from the Camera's (updated) Eular Angles
 	void updateCameraVectors()
@@ -131,4 +158,5 @@ private:
 		Up = glm::normalize(glm::cross(Right, Front));
 	}
 };
+
 #endif

@@ -7,7 +7,7 @@ struct quad
 {
 	GLuint quadVAO;
 	GLuint quadVBO;
-
+	
 	void renderQuad()
 	{
 		if (quadVAO == 0)

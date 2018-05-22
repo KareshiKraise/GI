@@ -4,23 +4,31 @@ framebuffer::framebuffer() {
 
 }
 
-framebuffer::framebuffer(fbo_type type, unsigned int s_w = 0, unsigned int s_h = 0) {
+framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 1024) {
 	fbo = 0;
 	GLCall(glGenFramebuffers(1, &fbo));
 
 	if (type == fbo_type::SHADOW_MAP) {
 		fb_type = type;
 		
-		shadow_w = s_w;
-		shadow_h = s_h;
+		w_res = w;
+		h_res = h;
 
 		GLCall(glGenTextures(1, &depth_map));
 		GLCall(glBindTexture(GL_TEXTURE_2D, depth_map));
-		GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, shadow_w, shadow_h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL));
+		GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, w_res, h_res, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL));
 		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
 		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
-		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));		
+		
+		//compare mode for hardware supported shadowmapping, opengl 4.3+, to be used with textureProj() inside GLSL
+		//GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE,GL_COMPARE_REF_TO_TEXTURE));
+		//GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL));
+
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));	
+
+		float border_col[] = {1.0f, 1.0f, 1.0f, 1.0f};
+		GLCall(glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_col));
 
 		bind();
 		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_map, 0));
