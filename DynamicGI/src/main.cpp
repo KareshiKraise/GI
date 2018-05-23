@@ -38,7 +38,7 @@ struct shadow_map {
 
 scene sponza;
 shadow_map shadowmap;
-
+quad screen_quad;
 
 /*---camera controls---*/
 double lastX = 0, lastY = 0;
@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
 	//3 -IMPLEMENT REFLECTIVE SHADOW MAP ALGORITHM
 	//4 -IMPLEMENT DEEP G BUFFER
 	//5 -EXPERIMENT WITH RADIOSITY + REFLECTIVE SHADOW MAP 
-	quad screen_quad;
+	
 
 	float Wid = 1240.0f;
 	float Hei = 720.0f;
