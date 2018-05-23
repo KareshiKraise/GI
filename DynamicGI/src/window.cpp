@@ -34,3 +34,11 @@ void window::swap() {
 void window::poll_ev() {
 	glfwPollEvents();
 }
+
+void window::set_kb(key_func func) {
+	glfwSetKeyCallback(wnd, func);
+}
+
+void window::set_mouse(mouse_func func) {
+	glfwSetCursorPosCallback(wnd, func);
+}

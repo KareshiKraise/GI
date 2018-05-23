@@ -15,11 +15,16 @@ public:
 	unsigned int h_res, w_res;
 	unsigned int fbo;
 	unsigned int depth_map;
+	unsigned int pos, normal, albedo;
 	fbo_type fb_type;
 	framebuffer();
 	
 	framebuffer(fbo_type type, unsigned int w, unsigned int h);
 	void bind();
 	void unbind();
+private:
+	void gen_shadow_map_fb(); 
+	void gen_g_buffer();
+	void gen_depth_buffer(); //renderbuffer for standard gbuffers
 };
 

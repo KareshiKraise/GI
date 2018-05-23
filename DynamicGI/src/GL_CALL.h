@@ -3,8 +3,6 @@
 #include <GL/glew.h>
 #include <iostream>
 
-//Nota para o professor: as macros a seguir são para debug e error testing no windows apenas, nao ha necessidade de alterar nada
-//Elas serao desativadas automaticamente durante compilacao em outro sistema
 
 #ifdef _MSC_VER
 	#define ASSERT(x) if (!(x)) __debugbreak();
