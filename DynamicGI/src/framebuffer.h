@@ -15,16 +15,18 @@ public:
 	unsigned int h_res, w_res;
 	unsigned int fbo;
 	unsigned int depth_map;
-	unsigned int pos, normal, albedo;
+	unsigned int pos, normal, albedo; //obs the albedo variable can also be used as the flux
 	fbo_type fb_type;
-	framebuffer();
-	
+
+	framebuffer();	
 	framebuffer(fbo_type type, unsigned int w, unsigned int h);
+
 	void bind();
 	void unbind();
 private:
-	void gen_shadow_map_fb(); 
-	void gen_g_buffer();
-	void gen_depth_buffer(); //renderbuffer for standard gbuffers
+	bool gen_shadow_map_fb(); 
+	bool gen_g_buffer();
+	bool gen_rsm();
+	void gen_depth_renderbuffer(); //renderbuffer for standard gbuffers
 };
 
