@@ -172,6 +172,9 @@
     <None Include="shaders\deferred_render_vert.glsl" />
     <None Include="shaders\depth_view_frag.glsl" />
     <None Include="shaders\gbuffer_shade_frag.glsl" />
+    <None Include="shaders\rsm_frag.glsl" />
+    <None Include="shaders\rsm_shade_frag.glsl" />
+    <None Include="shaders\rsm_vert.glsl" />
     <None Include="shaders\screen_quad_vert.glsl" />
     <None Include="shaders\shadow_map_frag.glsl" />
     <None Include="shaders\shadow_map_vert.glsl" />

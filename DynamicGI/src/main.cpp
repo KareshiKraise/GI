@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <random>
 
 #include <GL/glew.h>
 
@@ -14,6 +15,7 @@
 #include "Quad.h"
 #include "framebuffer.h"
 #include "Axis3D.h"
+
 
 //scene and model paths
 const char* sponza_path = "models/sponza/sponza.obj";
@@ -51,6 +53,13 @@ glm::vec3 ref_pos;
 glm::vec3 lightPos;
 glm::vec3 lightDir;
 
+/*SAMPLING PARAMETERS */
+
+const unsigned int SAMPLING_SIZE = 64; // rsm sampling
+float r_max = 0.03f;// max r for sampling pattern of rsm
+const float PI = 3.1415926f;
+const float PI_TWO = 6.2831853;
+
 //keyboard function
 void kbfunc(GLFWwindow* window, int key, int scan, int action, int mods) {
 	if (key == GLFW_KEY_ESCAPE && (action == GLFW_PRESS || action == GLFW_REPEAT))
@@ -80,13 +89,14 @@ void kbfunc(GLFWwindow* window, int key, int scan, int action, int mods) {
 	
 	
 	if (key == GLFW_KEY_B && (action == GLFW_PRESS)) {
-		sponza.camera->print_camera_coords();
+		//sponza.camera->print_camera_coords();
 		//On pressing B, light will be updated to the current position, direction  and up of the camera
 		//lightDir = -sponza.camera->Front;
 		//ref_pos = sponza.camera->Position;
 		//ref_up = sponza.camera->Up;
 		//ref_front = sponza.camera->Front;
 		//shadowmap.view = glm::lookAt(ref_pos, ref_front, ref_up);
+		std::cout << "value of r_max is = " << r_max << std::endl;
 	}	
 
 	if (key == GLFW_KEY_P && (action == GLFW_PRESS)) {
@@ -95,6 +105,13 @@ void kbfunc(GLFWwindow* window, int key, int scan, int action, int mods) {
 
 	if (key == GLFW_KEY_O && (action == GLFW_PRESS)) {
 		render_complete = !render_complete;
+	}
+
+	if (key == GLFW_KEY_U && (action == GLFW_PRESS)) {
+		r_max += 0.01;
+	}
+	if (key == GLFW_KEY_J && (action == GLFW_PRESS)) {
+		r_max -= 0.01;
 	}
 }
 
@@ -169,20 +186,17 @@ int main(int argc, char **argv) {
 	//sponza.proj = glm::ortho(-20.f, 20.f, -20.f, 20.f, n_v, f_v);
 
 	glm::vec3 eyePos = sponza.bb_mid + glm::vec3(0,20,0);
-	sponza.shader = new Shader("shaders/screen_quad_vert.glsl", "shaders/gbuffer_shade_frag.glsl", nullptr);
+	sponza.shader = new Shader("shaders/screen_quad_vert.glsl", "shaders/rsm_shade_frag.glsl", nullptr);
 	sponza.camera = new Camera(eyePos);
 	sponza.view = sponza.camera->GetViewMatrix();
 	
-	/*---- LIGHT DATA----*/
 	
-	//hardcoded light position considering my position
-	//lightPos = glm::vec3(34.5808f, 112.202f, 0.45444f);//sponza.bb_mid;	
 		
 	/*--- SHADOW MAP LIGHT TRANSFORMS---*/		
-	shadowmap.proj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, s_near, s_far);
+	shadowmap.proj = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, s_near, s_far);
 		
-	glm::vec3 l_pos = sponza.bb_mid + glm::vec3(0, 20, 0);
-	glm::vec3 l_center = sponza.bb_mid;
+	glm::vec3 l_pos = sponza.bb_mid + glm::vec3(0, 110, 0); // light position
+	glm::vec3 l_center = sponza.bb_mid; //light looking at
 	glm::vec3 worldup(0.0, 1.0, 0.2); //movendo ligeiramente o vetor up, caso contrario teriamos direcao e up colineares, a matriz seria degenerada
 	shadowmap.view = glm::lookAt(l_pos, l_center, worldup);
 	lightDir = glm::normalize(l_pos - l_center);	
@@ -195,22 +209,47 @@ int main(int argc, char **argv) {
 	framebuffer depthBuffer(fbo_type::SHADOW_MAP, s_w, s_h);
 	
 	/*------- AXIS ---------*/
-	Axis3D origin = {0,0};
-	Shader *axis_program;
-	axis_program = new Shader("shaders/axis_view_vert.glsl", "shaders/axis_view_frag.glsl");
-	glm::mat4 axis_MVP;
+	//Axis3D origin = {0,0};
+	//Shader *axis_program;
+	//axis_program = new Shader("shaders/axis_view_vert.glsl", "shaders/axis_view_frag.glsl");
+	//glm::mat4 axis_MVP;
 	
 	/*----OPENGL Enable/Disable functions----*/
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
-	glClearColor(1.0, 1.0, 1.0, 1.0);
+	glClearColor(0.5, 0.8, 0.9, 1.0); 
+	//glClearColor(1.0, 1.0, 1.0, 1.0);
 		
 	/* ---------------- G-BUFFER ----------------*/
 	framebuffer gbuffer(fbo_type::G_BUFFER, Wid, Hei);
 	Shader geometry_pass ("shaders/deferred_render_vert.glsl", "shaders/deferred_render_frag.glsl");
 	
-	//framebuffer rsm(fbo_type::RSM, s_w, s_h);
+	/* -------------- RSM BUFFER ----------------*/
 
+	unsigned int rsm_w = 1024;
+	unsigned int rsm_h = 1024;
+	
+	framebuffer rsm(fbo_type::RSM, rsm_w, rsm_h);
+	Shader RSM_pass("shaders/rsm_vert.glsl", "shaders/rsm_frag.glsl");
+
+	/*-------- RSM SHADING PARAMETERS ----------*/
+	std::uniform_real_distribution<float> random(0.0f, 1.0f);
+	std::default_random_engine gen;
+
+	//normalized random numbers
+	float sig1; //first random
+	float sig2; //second random
+
+	std::vector <glm::vec2> pattern;
+	pattern.resize(SAMPLING_SIZE);//precalculated sampling pattern
+
+	for(int i = 0;i < SAMPLING_SIZE; ++i ){
+		//normalized random numbers
+		sig1 = random(gen); //first random
+		sig2 = random(gen); //second random
+		pattern[i].x = sig1 * sin(PI_TWO *sig2);
+		pattern[i].y = sig1 * cos(PI_TWO *sig2);
+	}
 
 	while (!w.should_close()) {
 			
@@ -218,6 +257,7 @@ int main(int argc, char **argv) {
 
 		lightspacemat = shadowmap.proj * shadowmap.view;
 
+		/*----- SHADOW MAP PASS-----*/
 		glCullFace(GL_FRONT);
 		shadowmap.shader->use();
 		shadowmap.shader->setMat4("PV", lightspacemat);
@@ -227,10 +267,25 @@ int main(int argc, char **argv) {
 		glClear(GL_DEPTH_BUFFER_BIT);
 		sponza.mesh->Draw(*shadowmap.shader);
 		depthBuffer.unbind();
+
+		/*--------------------------*/
+
 		glCullFace(GL_BACK);
-		
+
+		/*---------RSM_Pass--------*/
+
+		RSM_pass.use();
+		RSM_pass.setMat4("P", shadowmap.proj);
+		RSM_pass.setMat4("V", shadowmap.view);
+		RSM_pass.setMat4("M", sponza.model);
+		RSM_pass.setFloat("lightColor", 0.65f);
+		rsm.bind();
+		glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+		sponza.mesh->Draw(RSM_pass);
+		rsm.unbind();
+
 		if (render_complete)
-		{			
+		{						
 			glViewport(0,0, Wid, Hei);
 			gbuffer.bind();
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -241,6 +296,8 @@ int main(int argc, char **argv) {
 			geometry_pass.setMat4("P", sponza.proj);
 			sponza.mesh->Draw(*sponza.shader);
 			gbuffer.unbind();	
+
+			/* ------ SHADING PASS ------*/
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			
@@ -258,11 +315,33 @@ int main(int argc, char **argv) {
 			GLCall(glActiveTexture(GL_TEXTURE3));
 			sponza.shader->setInt("shadow_map", 3);
 			GLCall(glBindTexture(GL_TEXTURE_2D, depthBuffer.depth_map));
+
+			GLCall(glActiveTexture(GL_TEXTURE4));
+			sponza.shader->setInt("rsm_position", 4);
+			GLCall(glBindTexture(GL_TEXTURE_2D, rsm.pos));
+			GLCall(glActiveTexture(GL_TEXTURE5));
+			sponza.shader->setInt("rsm_normal", 5);
+			GLCall(glBindTexture(GL_TEXTURE_2D, rsm.normal));
+			GLCall(glActiveTexture(GL_TEXTURE6));
+			sponza.shader->setInt("rsm_flux", 6);
+			GLCall(glBindTexture(GL_TEXTURE_2D, rsm.albedo));
+
+
 						
 			sponza.shader->setMat4("LightSpaceMat", lightspacemat);
 			sponza.shader->setVec3("eyePos", sponza.camera->Position);
 			sponza.shader->setVec3("lightDir", lightDir);
+			sponza.shader->setVec3("lightColor", glm::vec3(0.65f));
+			sponza.shader->setFloat("rmax", r_max);
+
+			for (int i = 0; i < SAMPLING_SIZE; ++i) {
+				std::string loc = "samples["+std::to_string(i)+"]";
+				sponza.shader->setVec2(loc, pattern[i]);
+			}
+
 			screen_quad.renderQuad();			
+			
+			/*---------------------------------------------------------------------------------------------------------------*/
 			//3D axis to serve as spatial reference, set at the origin {0, 0, 0} of the world, representing the canonical basis 
 			//GLCall(glLineWidth(5));
 			//axis_program->use();
@@ -276,11 +355,12 @@ int main(int argc, char **argv) {
 			glViewport(0,0, Wid, Hei);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			depthView.use();
-			depthView.setInt("screen_tex", 0);
 			depthView.setFloat("near", s_near);
 			depthView.setFloat("far", s_far);
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, depthBuffer.depth_map);
+			GLCall(glActiveTexture(GL_TEXTURE0));
+			depthView.setInt("screen_tex", 0);
+			//GLCall(glBindTexture(GL_TEXTURE_2D, depthBuffer.depth_map));
+			GLCall(glBindTexture(GL_TEXTURE_2D, rsm.albedo));
 			screen_quad.renderQuad();	
 		}
 		
@@ -300,8 +380,8 @@ int main(int argc, char **argv) {
 		delete sponza.camera;
 	if (shadowmap.shader)
 		delete shadowmap.shader;
-	if (axis_program)
-		delete axis_program;
+	//if (axis_program)
+	//	delete axis_program;
 	return 0;
 }
 

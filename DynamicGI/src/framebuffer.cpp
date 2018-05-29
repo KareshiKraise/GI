@@ -12,8 +12,9 @@ framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 
 		fb_type = type;		
 		w_res = w;
 		h_res = h;
-		if(gen_shadow_map_fb())	
+		if (gen_shadow_map_fb()) {				
 			std::cout << "shadow map fbo complete" << std::endl;
+		}
 	}
 
 	else if (type == fbo_type::G_BUFFER) {
@@ -145,7 +146,7 @@ bool framebuffer::gen_rsm() {
 	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w_res, h_res, 0, GL_RGB, GL_FLOAT, NULL));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
-	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, normal, 0));
+	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, normal, 0));
 
 	//flux atachment
 	GLCall(glGenTextures(1, &albedo));
@@ -155,7 +156,11 @@ bool framebuffer::gen_rsm() {
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
 	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, albedo, 0));
 
-	gen_shadow_map_fb();
+	unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+	glDrawBuffers(3, attachments);
+
+	//gen_shadow_map_fb();
+	gen_depth_renderbuffer();
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		std::cout << "RSM framebuffer incomplete" << std::endl;
