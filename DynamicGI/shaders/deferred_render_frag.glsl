@@ -11,9 +11,12 @@ in VS_OUT{
 } fs_in;
 
 uniform sampler2D texture_diffuse1;
+uniform sampler2D texture_specular1;
+uniform sampler2D texture_normal1;
 
 void main() {
 	gposition = fs_in.pos;
 	gnormal = normalize(fs_in.normal);
-	galbedo = texture(texture_diffuse1, fs_in.tex);
+	galbedo.rgb = texture(texture_diffuse1, fs_in.tex).rgb;
+	galbedo.a = texture(texture_specular1, fs_in.tex).r;
 }

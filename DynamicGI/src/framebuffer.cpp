@@ -4,7 +4,7 @@ framebuffer::framebuffer() {
 
 }
 
-framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 1024) : fbo{0} {
+framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 1024, unsigned int l) : fbo{ 0 } {
 	
 	GLCall(glGenFramebuffers(1, &fbo));
 
@@ -21,13 +21,18 @@ framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 
 		fb_type = type;
 		w_res = w;
 		h_res = h;
+		this->layers = l;
 		if(gen_g_buffer())
 			std::cout << "gbuffer fbo complete" << std::endl;
 
 	}
 
 	else if (type == fbo_type::DEEP_G_BUFFER) {
-		//
+		fb_type = type;
+		w_res = w;
+		h_res = h;
+		if(gen_dgbuffer())
+			std::cout << "deep gbuffer fbo complete" << std::endl;
 	}
 
 	else if (type == fbo_type::RSM) {
@@ -169,4 +174,75 @@ bool framebuffer::gen_rsm() {
 	
 	unbind();
 	return true;
+}
+
+bool framebuffer::gen_dgbuffer() {
+
+	GLCall(glGenFramebuffers(1, &fbo));
+	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, fbo));
+	
+	GLCall(glGenTextures(1, &pos));
+	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, pos));
+	GLCall(glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB16F, w_res, h_res, layers, 0, GL_RGB, GL_FLOAT, NULL));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, pos, 0));
+
+
+	GLCall(glGenTextures(1, &normal));
+	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, normal));
+	GLCall(glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB16F, w_res, h_res, layers, 0, GL_RGB, GL_FLOAT, NULL));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, normal, 0));
+
+
+	GLCall(glGenTextures(1, &albedo));
+	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, albedo));
+	GLCall(glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, w_res, h_res, layers, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, albedo , 0));
+
+	GLuint attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+	glDrawBuffers(3, attachments);
+
+	GLCall(glGenTextures(1, &depth_map));
+	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, depth_map));
+	GLCall(glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_DEPTH_COMPONENT24, w_res, h_res, layers, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_map, 0));
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		std::cout << "deep g buffer framebuffer incomplete" << std::endl;
+		return false;
+	}
+
+	unbind();
+
+	GLCall(glGenTextures(1, &compare_depth));
+	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, compare_depth));
+	GLCall(glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_DEPTH_COMPONENT24, w_res, h_res, layers - 1, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+
+	return true;
+
+}
+
+void framebuffer::copy_fb_data() {
+
+	GLCall(glCopyImageSubData(depth_map, GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, compare_depth, GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, w_res, h_res, layers - 1));
+
 }

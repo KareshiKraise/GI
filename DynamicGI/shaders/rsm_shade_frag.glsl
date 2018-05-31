@@ -17,7 +17,7 @@ uniform vec3 eyePos;
 uniform mat4 LightSpaceMat;
 uniform float rmax;
 
-const int SAMPLE_COUNT = 64;
+const int SAMPLE_COUNT = 100;
 uniform vec2 samples[SAMPLE_COUNT];
 
 out vec4 frag_color;
@@ -67,8 +67,8 @@ void main() {
 
 	vec4 pos_lightspace = LightSpaceMat * vec4(fragpos, 1.0);
 
-	vec3 ambient = indirectLight(fragpos, normal);
-	
+	vec3 indirect = indirectLight(fragpos, normal);
+		
 	float diff = max(dot(lightDir, normal), 0.0f);
 	vec3 diffuse = diff * lightColor;
 
@@ -78,11 +78,10 @@ void main() {
 	vec3 half_v = normalize(lightDir + eyeDir);
 	spec = pow(max(dot(normal, half_v), 0.0), 16);
 	vec3 specular = spec * lightColor;
-
 	
 	float shadow = inShadow(pos_lightspace, normal);
 
-	vec3 lighting = (ambient + (shadow) * (specular + diffuse)) * albedo;
+	vec3 lighting = (indirect + (shadow) * (specular + diffuse)) * albedo;
 	frag_color = vec4(lighting, 1.0);
 
 }

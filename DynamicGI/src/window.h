@@ -15,4 +15,7 @@ struct window {
 	void set_mouse(mouse_func);
 
 	GLFWwindow *wnd;
+
+	unsigned int Wid;
+	unsigned int Hei;
 };

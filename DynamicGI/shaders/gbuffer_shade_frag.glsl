@@ -32,6 +32,7 @@ void main() {
 	vec3 fragpos = texture(gposition, tex).xyz;
 	vec3 normal = texture(gnormal, tex).xyz;
 	vec3 albedo = texture(galbedo, tex).rgb;
+	float specular = texture(galbedo, tex).a;
 
 	vec3 lightColor = vec3(1.0);
 	vec3 ambient = albedo * 0.1;
@@ -44,12 +45,13 @@ void main() {
 	float spec = 0.0;
 	vec3 half_v = normalize(lightDir + eyeDir);
 	spec = pow(max(dot(normal, half_v), 0.0), 16);
-	vec3 specular = spec * lightColor;
+	vec3 glossy = spec * lightColor * vec3(specular);
 
 	vec4 pos_lightspace = LightSpaceMat * vec4(fragpos, 1.0);
 	float shadow = inShadow(pos_lightspace, normal);
 
-	vec3 lighting = (ambient + (shadow) * (specular + diffuse)) * albedo;
+	vec3 lighting = (ambient + (shadow) * (glossy + diffuse)) * albedo;
+	//vec3 lighting = (ambient + glossy + diffuse) * albedo;
 	frag_color = vec4(lighting, 1.0);
 
 }

@@ -14,6 +14,8 @@ void window::create_window(int w, int h) {
 	}
 
 	this->wnd = glfwCreateWindow(w, h, "DynamicGI", NULL, NULL);
+	Wid = w;
+	Hei = h;
 	if (!this->wnd) {
 		glfwTerminate();
 		std::cout << "could not create window" << std::endl;
