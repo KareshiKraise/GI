@@ -7,7 +7,8 @@ enum class fbo_type {
 	SHADOW_MAP = 0x01,
 	RSM = 0X02,
 	G_BUFFER = 0X03,
-	DEEP_G_BUFFER = 0X04
+	DEEP_G_BUFFER = 0X04,
+	RADIOSITY_PARAM = 0x05
 };
 
 class framebuffer {
@@ -20,13 +21,14 @@ public:
 	fbo_type fb_type;
 
 	framebuffer();	
-	framebuffer(fbo_type type, unsigned int w, unsigned int h, unsigned int l = 2);
+	framebuffer(fbo_type type, unsigned int w, unsigned int h, unsigned int l);
 
 	void copy_fb_data();
 
 	void bind();
 	void unbind();
 private:
+	bool gen_radiosity();
 	bool gen_shadow_map_fb(); 
 	bool gen_g_buffer();
 	bool gen_rsm();

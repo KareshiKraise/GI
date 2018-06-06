@@ -83,5 +83,12 @@
     <None Include="shaders\rsm_vert.glsl" />
     <None Include="shaders\rsm_frag.glsl" />
     <None Include="shaders\rsm_shade_frag.glsl" />
+    <None Include="shaders\deep_g_buffer_vert.glsl" />
+    <None Include="shaders\deep_g_buffer_frag.glsl" />
+    <None Include="shaders\deep_g_buffer_geom.glsl" />
+    <None Include="shaders\dgb_debug_view_frag.glsl" />
+    <None Include="shaders\radiosity_geom.glsl" />
+    <None Include="shaders\radiosity_frag.glsl" />
+    <None Include="shaders\radiosity_shade_frag.glsl" />
   </ItemGroup>
 </Project>

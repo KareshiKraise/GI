@@ -4,7 +4,7 @@ framebuffer::framebuffer() {
 
 }
 
-framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 1024, unsigned int l) : fbo{ 0 } {
+framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 1024, unsigned int l = 2) : fbo{ 0 } {
 	
 	GLCall(glGenFramebuffers(1, &fbo));
 
@@ -12,6 +12,7 @@ framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 
 		fb_type = type;		
 		w_res = w;
 		h_res = h;
+		layers = l;
 		if (gen_shadow_map_fb()) {				
 			std::cout << "shadow map fbo complete" << std::endl;
 		}
@@ -21,7 +22,7 @@ framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 
 		fb_type = type;
 		w_res = w;
 		h_res = h;
-		this->layers = l;
+		layers = l;
 		if(gen_g_buffer())
 			std::cout << "gbuffer fbo complete" << std::endl;
 
@@ -31,6 +32,7 @@ framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 
 		fb_type = type;
 		w_res = w;
 		h_res = h;
+		layers = l;
 		if(gen_dgbuffer())
 			std::cout << "deep gbuffer fbo complete" << std::endl;
 	}
@@ -39,8 +41,18 @@ framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 
 		fb_type = type;
 		w_res = w;
 		h_res = h;
+		layers = l;
 		if(gen_rsm())
 			std::cout << " rsm fbo complete" << std::endl;
+	}
+
+	else if (type == fbo_type::RADIOSITY_PARAM) {
+		fb_type = type;
+		w_res = w;
+		h_res = h;
+		layers = l;
+		if (gen_radiosity())
+			std::cout << " radiosity fbo complete" << std::endl;
 	}
 }
 
@@ -177,9 +189,8 @@ bool framebuffer::gen_rsm() {
 }
 
 bool framebuffer::gen_dgbuffer() {
-
-	GLCall(glGenFramebuffers(1, &fbo));
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, fbo));
+	
+	bind();
 	
 	GLCall(glGenTextures(1, &pos));
 	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, pos));
@@ -244,5 +255,32 @@ bool framebuffer::gen_dgbuffer() {
 void framebuffer::copy_fb_data() {
 
 	GLCall(glCopyImageSubData(depth_map, GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, compare_depth, GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, w_res, h_res, layers - 1));
+
+}
+
+bool framebuffer::gen_radiosity() {
+	bind();
+	
+
+	//radiosity
+	GLCall(glGenTextures(1, &albedo));
+	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, albedo));
+	GLCall(glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGB, w_res, h_res, layers, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, albedo, 0));
+
+	
+	glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		std::cout << "radiosity framebuffer incomplete" << std::endl;
+		return false;
+	}
+
+	unbind();
+	return true;
 
 }
