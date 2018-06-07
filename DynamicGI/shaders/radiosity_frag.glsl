@@ -29,6 +29,11 @@ void main() {
 		diffuse = max(dot(lightDir, normal), 0.0f);		
 	}
 
-	glambertian = diffuse * lightColor * albedo;
+	float maxChannel = max(albedo.r, max(albedo.g, albedo.b));
+	float minChannel = min(albedo.r, min(albedo.g, albedo.b));
+	float boost = (maxChannel - minChannel) / maxChannel;
+	float rho = 1.5f;
+
+	glambertian = diffuse * lightColor * albedo * rho * boost;
 
 }

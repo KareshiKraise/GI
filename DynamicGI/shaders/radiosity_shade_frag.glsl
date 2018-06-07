@@ -42,19 +42,19 @@ float calculate_hashed_angle(ivec2 pos){
 
 vec2 get_spiral_texel(vec2 cur, int i) {
 	float ki = (i + 0.5f) / samples;
-	ivec2 ssC = ivec2(cur);
-	float ang = 2 * PI * ki * turn + calculate_hashed_angle(ssC);
+	ivec2 ssC = ivec2(gl_FragCoord.xy);
+	float ang = TWO_PI * ki * turn +calculate_hashed_angle(ssC);
 	vec2 a_sin_cos = vec2(cos(ang), sin(ang));
 	float hi = radius * ki;
 	vec2 sp_tex = cur + (hi * a_sin_cos);
 	return sp_tex;
 }
 
-vec3 calculate_indirect(vec2 t) {
+vec3 calculate_indirect(vec2 t, vec3 P, vec3 N) {
 	int M = 0;
 
-	vec3 PX = texture(gposition, vec3(t, 0)).xyz;
-	vec3 NX = texture(gnormal, vec3(t, 0)).xyz;
+	vec3 PX = P;//texture(gposition, vec3(t, 0)).xyz;
+	vec3 NX = N;//texture(gnormal, vec3(t, 0)).xyz;
 	vec3 EX = vec3(0.0f);
 
 	for (int i = 0; i < samples; i++) {
@@ -64,14 +64,15 @@ vec3 calculate_indirect(vec2 t) {
 		for (int l = 0; l < layers; l++) {
 
 			vec3 PY = texture(gposition, vec3(n_tex, l)).xyz;
+			vec3 NY = texture(gnormal, vec3(n_tex, l)).xyz;
 			vec3 W = normalize(PY - PX);
 			//Lambertian->radiosity
 			vec3 BY = texture(gradiosity, vec3(n_tex, l)).rgb;
 			
-			float dot_W_NX = dot(W, NX);
-			
+			float dot_W_NX = dot(W, NX);	
+									
 			if (dot_W_NX > 0.0f) {
-				EX += BY * dot_W_NX;
+				EX += BY * max(dot_W_NX, 0.0f);
 				M += 1;
 			}
 		}
@@ -79,32 +80,34 @@ vec3 calculate_indirect(vec2 t) {
 	vec3 IRR = (TWO_PI / M) * EX; //IRRADIANCE
 	float maxChannel = max(IRR.r, max(IRR.g, IRR.b));
 	float minChannel = min(IRR.r, min(IRR.g, IRR.b));
-	float boost = maxChannel - minChannel / maxChannel;
+	float boost = (maxChannel - minChannel )/ maxChannel;
+	float rho = 1.5f;
 
-	float rho = 1.0f;
 	return (IRR * rho * boost);
 }
 
 
 void main() {	
-	vec3 indirect = calculate_indirect(tex);
-	
+		
 	vec3 pos    = texture(gposition, vec3(tex, 0)).xyz;
 	vec3 n      = texture(gnormal, vec3(tex, 0)).xyz; 
 	vec3 albedo = texture(galbedo, vec3(tex, 0)).rgb;
 	float spec  = texture(galbedo, vec3(tex, 0)).a;
 	
+	vec3 indirect = calculate_indirect(tex, pos, n);
+
 	float diffuse = max(dot(lightDir, n), 0.0f);
 	vec3 lambertian = diffuse * lightColor;
-
+	
 	vec3 eyeDir = normalize(eyePos - pos);
 	vec3 half_v = normalize(lightDir + eyeDir);
-	float factor = pow(max(dot(n, half_v), 0.0), 16);
+	float factor = pow(max(dot(n, half_v), 0.0), 32);
 	vec3 specular = spec * factor * lightColor;
 	
 	vec4 pos_Light_Space = LightSpaceMat * vec4(pos, 1.0f);
 	float occluded = inShadow(pos_Light_Space, n);
-
-	vec3 lighting = (indirect + (occluded)*(lambertian + specular))*albedo;
+	
+	vec3 lighting = (indirect + (occluded)*(lambertian + specular)) * albedo;
+		
 	color = vec4(lighting, 1.0f);
 }

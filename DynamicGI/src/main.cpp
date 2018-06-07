@@ -221,7 +221,7 @@ int main(int argc, char **argv) {
 	/* ------------ DEEP G BUFFER - 2 LAYER ----------*/
 	
 	float Delta = 1.0f;
-	int Layers = 2;
+	const int Layers = 2;
 	framebuffer deepgbuffer(fbo_type::DEEP_G_BUFFER,  Wid, Hei, Layers);
 	Shader dgb_program("shaders/deep_g_buffer_vert.glsl", "shaders/deep_g_buffer_frag.glsl", "shaders/deep_g_buffer_geom.glsl");
 	Shader dgb_debug_view("shaders/screen_quad_vert.glsl","shaders/dgb_debug_view_frag.glsl");
@@ -231,9 +231,9 @@ int main(int argc, char **argv) {
 	Shader deep_radiosity("shaders/screen_quad_vert.glsl", "shaders/radiosity_frag.glsl", "shaders/radiosity_geom.glsl");
 	Shader radiosity_shading("shaders/screen_quad_vert.glsl", "shaders/radiosity_shade_frag.glsl");
 
-	unsigned int N = 16;
+	unsigned int N = 13;
 	unsigned int turns = minDiscrepancyArray[N];
-	float radius = 1.0f; //in world units
+	float radius = 0.8f; //in world units
 
 	//main loop
 	while (!w.should_close()) {
@@ -288,7 +288,7 @@ int main(int argc, char **argv) {
 
 			glActiveTexture(GL_TEXTURE4);
 			radiosity_shading.setInt("gradiosity", 4);
-			glBindTexture(GL_TEXTURE_2D, radiosity.albedo);
+			glBindTexture(GL_TEXTURE_2D_ARRAY, radiosity.albedo);
 
 			radiosity_shading.setVec3("eyePos", sponza.camera->Position);
 			radiosity_shading.setVec3("lightDir",   shadowmap.lightDir);

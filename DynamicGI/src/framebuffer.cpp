@@ -201,6 +201,8 @@ bool framebuffer::gen_dgbuffer() {
 	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
 	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, pos, 0));
 
+	float border_col[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	GLCall(glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, border_col));
 
 	GLCall(glGenTextures(1, &normal));
 	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, normal));
@@ -211,6 +213,8 @@ bool framebuffer::gen_dgbuffer() {
 	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
 	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, normal, 0));
 
+	
+	GLCall(glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, border_col));
 
 	GLCall(glGenTextures(1, &albedo));
 	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, albedo));
@@ -220,6 +224,9 @@ bool framebuffer::gen_dgbuffer() {
 	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
 	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
 	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, albedo , 0));
+
+	
+	GLCall(glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, border_col));
 
 	GLuint attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
 	glDrawBuffers(3, attachments);
@@ -272,7 +279,9 @@ bool framebuffer::gen_radiosity() {
 	GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
 	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, albedo, 0));
 
-	
+	float border_col[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	GLCall(glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, border_col));
+
 	glDrawBuffer(GL_COLOR_ATTACHMENT0);
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
