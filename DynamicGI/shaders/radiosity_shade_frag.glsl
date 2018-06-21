@@ -81,7 +81,7 @@ vec3 calculate_indirect(vec2 t, vec3 P, vec3 N) {
 	float maxChannel = max(IRR.r, max(IRR.g, IRR.b));
 	float minChannel = min(IRR.r, min(IRR.g, IRR.b));
 	float boost = (maxChannel - minChannel )/ maxChannel;
-	float rho = 1.5f;
+	float rho = 1.0f;
 
 	return (IRR * rho * boost);
 }

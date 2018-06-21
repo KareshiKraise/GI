@@ -15,25 +15,34 @@ void main() {
 	vec3 normal = vec3(0.0f);
 	float diffuse = 0.0f;
 
+	float maxChannel = max(albedo.r, max(albedo.g, albedo.b));
+	float minChannel = min(albedo.r, min(albedo.g, albedo.b));
+	float boost = (maxChannel - minChannel) / maxChannel;
+	float rho = 1.5f;
+
 	if (gl_Layer == 0) {
 
 		albedo = texture(galbedo, vec3(Tex, 0)).rgb;
 		normal = texture(galbedo, vec3(Tex, 0)).xyz;
 
 		diffuse = max(dot(lightDir, normal), 0.0f);		
+
+		maxChannel = max(albedo.r, max(albedo.g, albedo.b));
+		minChannel = min(albedo.r, min(albedo.g, albedo.b));
+		boost = (maxChannel - minChannel) / maxChannel;	
+
+		glambertian = diffuse * lightColor * rho * boost * albedo;
 	}
 	else if (gl_Layer == 1) {
 		albedo = texture(galbedo, vec3(Tex, 1)).rgb;
 		normal = texture(galbedo, vec3(Tex, 1)).xyz;
 
-		diffuse = max(dot(lightDir, normal), 0.0f);		
+		diffuse = max(dot(lightDir, normal), 0.0f);	
+		maxChannel = max(albedo.r, max(albedo.g, albedo.b));
+		minChannel = min(albedo.r, min(albedo.g, albedo.b));
+		boost = (maxChannel - minChannel) / maxChannel;
+		
+		glambertian = diffuse * lightColor * rho * boost * albedo;
 	}
-
-	float maxChannel = max(albedo.r, max(albedo.g, albedo.b));
-	float minChannel = min(albedo.r, min(albedo.g, albedo.b));
-	float boost = (maxChannel - minChannel) / maxChannel;
-	float rho = 1.5f;
-
-	glambertian = diffuse * lightColor * albedo * rho * boost;
 
 }

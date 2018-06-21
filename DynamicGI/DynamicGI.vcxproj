@@ -156,6 +156,7 @@
     <ClInclude Include="src\Quad.h" />
     <ClInclude Include="src\shader.h" />
     <ClInclude Include="src\stb_image.h" />
+    <ClInclude Include="src\uniform_buffer.h" />
     <ClInclude Include="src\window.h" />
   </ItemGroup>
   <ItemGroup>
@@ -163,6 +164,7 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\mesh_loader.cpp" />
     <ClCompile Include="src\model.cpp" />
+    <ClCompile Include="src\uniform_buffer.cpp" />
     <ClCompile Include="src\window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -176,12 +178,14 @@
     <None Include="shaders\depth_view_frag.glsl" />
     <None Include="shaders\dgb_debug_view_frag.glsl" />
     <None Include="shaders\gbuffer_shade_frag.glsl" />
+    <None Include="shaders\pre_shade_frag.glsl" />
     <None Include="shaders\radiosity_frag.glsl" />
     <None Include="shaders\radiosity_geom.glsl" />
     <None Include="shaders\radiosity_shade_frag.glsl" />
     <None Include="shaders\rsm_frag.glsl" />
     <None Include="shaders\rsm_shade_frag.glsl" />
     <None Include="shaders\rsm_vert.glsl" />
+    <None Include="shaders\RSM_VPL_shading_frag.glsl" />
     <None Include="shaders\screen_quad_vert.glsl" />
     <None Include="shaders\shadow_map_frag.glsl" />
     <None Include="shaders\shadow_map_vert.glsl" />

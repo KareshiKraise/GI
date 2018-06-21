@@ -8,7 +8,8 @@ enum class fbo_type {
 	RSM = 0X02,
 	G_BUFFER = 0X03,
 	DEEP_G_BUFFER = 0X04,
-	RADIOSITY_PARAM = 0x05
+	RADIOSITY_PARAM = 0x05,
+	PRE_SHADE_EXPERIMENTAL = 0X06 
 };
 
 class framebuffer {
@@ -34,5 +35,6 @@ private:
 	bool gen_rsm();
 	void gen_depth_renderbuffer(); //renderbuffer for standard gbuffers
 	bool gen_dgbuffer();
+	bool gen_indirect_buffer();
 };
 

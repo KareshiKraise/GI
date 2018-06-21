@@ -17,7 +17,7 @@ uniform vec3 eyePos;
 uniform mat4 LightSpaceMat;
 uniform float rmax;
 
-const int SAMPLE_COUNT = 100;
+const int SAMPLE_COUNT = 64;
 uniform vec2 samples[SAMPLE_COUNT];
 
 out vec4 frag_color;

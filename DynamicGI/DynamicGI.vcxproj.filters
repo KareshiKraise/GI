@@ -48,6 +48,9 @@
     <ClInclude Include="src\Axis3D.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\uniform_buffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -63,6 +66,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\framebuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\uniform_buffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -90,5 +96,7 @@
     <None Include="shaders\radiosity_geom.glsl" />
     <None Include="shaders\radiosity_frag.glsl" />
     <None Include="shaders\radiosity_shade_frag.glsl" />
+    <None Include="shaders\RSM_VPL_shading_frag.glsl" />
+    <None Include="shaders\pre_shade_frag.glsl" />
   </ItemGroup>
 </Project>

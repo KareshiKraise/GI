@@ -13,6 +13,9 @@ void window::create_window(int w, int h) {
 		std::cout << "failed to initialize glfw" << std::endl;
 	}
 
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+
 	this->wnd = glfwCreateWindow(w, h, "DynamicGI", NULL, NULL);
 	Wid = w;
 	Hei = h;

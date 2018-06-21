@@ -17,15 +17,19 @@ public:
 	unsigned int ID;
 	// constructor generates the shader on the fly
 	// ------------------------------------------------------------------------
-	Shader(const char* vertexPath, const char* fragmentPath, const char* geometryPath = nullptr)
+	Shader(const char* vertexPath, const char* fragmentPath, const char* geometryPath = nullptr, const char* computePath = nullptr)
 	{
 		// 1. retrieve the vertex/fragment source code from filePath
 		std::string vertexCode;
 		std::string fragmentCode;
 		std::string geometryCode;
+		std::string computeCode;
+
 		std::ifstream vShaderFile;
 		std::ifstream fShaderFile;
 		std::ifstream gShaderFile;
+		std::ifstream cShaderFile;
+
 		// ensure ifstream objects can throw exceptions:
 		vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 		fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);

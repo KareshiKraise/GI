@@ -13,8 +13,10 @@ in VS_OUT{
 uniform float lightColor;
 uniform sampler2D texture_diffuse1;
 
+
 void main() {
 	rsm_position = fs_in.pos;
 	rsm_normal = fs_in.normal;
-	rsm_flux = vec4(texture(texture_diffuse1, fs_in.tex).rgb  * lightColor, 1.0);		
+	vec3 flux = texture(texture_diffuse1, fs_in.tex).rgb * lightColor;
+	rsm_flux = vec4(flux, 1.0);		
 }
