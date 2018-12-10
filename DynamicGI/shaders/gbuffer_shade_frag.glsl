@@ -52,6 +52,6 @@ void main() {
 
 	vec3 lighting = (ambient + (shadow) * (glossy + diffuse)) * albedo;
 	//vec3 lighting = (ambient + glossy + diffuse) * albedo;
-	frag_color = vec4(lighting, 1.0);
+	frag_color = vec4(albedo, 1.0);
 
 }

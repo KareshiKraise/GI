@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <random>
 
@@ -17,12 +18,17 @@
 #include "Axis3D.h"
 #include "uniform_buffer.h"
 
+#include "third_party/imgui.h"
+#include "third_party/imgui_impl_glfw.h"
+#include "third_party/imgui_impl_opengl3.h"
+
 //GLOBAL CONSTANTS
 const float PI = 3.1415926f;
 const float PI_TWO = 6.2831853;
 
 //scene and model paths
 const char* sponza_path = "models/sponza/sponza.obj";
+const char* sphere_path = "models/sphere/sphere.obj";
 
 //Number of turns for spiral quasi monte carlo sampling, pre computed by McGuire for max of N = 100 samples 
 //Taken from the G3D DeepGBuffer radiosity samples
@@ -81,6 +87,7 @@ struct point_light {
 scene sponza;
 shadow_data shadowmap;
 quad screen_quad;
+scene sphere_scene;
 
 /*---camera controls---*/
 double lastX = 0, lastY = 0;
@@ -120,32 +127,120 @@ void rsm_pass(Shader& RSM_pass, framebuffer& rsm, shadow_data& light_data);
 
 void gbuffer_pass(framebuffer& gbuffer, Shader& gbuf_program, scene& s);
 
-void rsm_shading_pass(quad& screen_quad, scene& s, shadow_data& light_data, RSM_parameters& rsm_data, framebuffer& gbuffer, framebuffer& depth_buffer, framebuffer& rsm_buffer);
-
 void deep_g_buffer_pass(Shader& dgb_program, framebuffer& dgbuffer, scene& s, float delta);
 
 void deep_g_buffer_debug(Shader& debug_view, framebuffer& dgb, quad& screen, shadow_data&  light_data, scene& s, framebuffer& depth_buffer);
 
-void pre_radiosity_pass(Shader& radio, framebuffer& r_buffer, framebuffer& dgbuffer, shadow_data& light_data, quad& screen);
+void blur_pass(quad& screen, unsigned int source_id, Shader& blur_program, framebuffer& blur_buffer);
 
-void screen_space_radiosity(quad& screenquad, Shader& radiosity_program, framebuffer& radbuffer,framebuffer& dgbuffer, framebuffer& depth, scene& s, shadow_data& light_data, int N, float rad ,int turn);
+/* GUI STUFF*/
+static void glfw_error_callback(int error, const char* description)
+{
+	fprintf(stderr, "Glfw Error %d: %s\n", error, description);
+}
+void init_gui(GLFWwindow *w) {
+	glfwSetErrorCallback(glfw_error_callback);
+	// Setup Dear ImGui context
+	const char* glsl_version = "#version 430";
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+
+	ImGui_ImplGlfw_InitForOpenGL(w, true);
+	ImGui_ImplOpenGL3_Init(glsl_version);
+	// Setup Style
+	ImGui::StyleColorsLight();
+}
+void render_gui(double delta) {
+	// Start the Dear ImGui frame
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	//IMGUI scope
+	{
+		ImGui::Begin("Timer");
+		ImGui::Text("%f miliseconds per frame", delta);	
+		ImGui::End();
+	}
+	//IMGUI render
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+void destroy_gui() {
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+}
+
+std::vector<glm::vec3> gen_instance_positions() {
+	std::vector<glm::vec3> pos(3);
+	pos.emplace_back(glm::vec3(-44.1766, 10.5945, -0.764266));
+	pos.emplace_back(glm::vec3(6.55214, 6.49787, -0.374851));
+	pos.emplace_back(glm::vec3(48.5382, 5.71253, 0.289969));
+
+	return pos;
+}
 
 
-/* EXPERIMENT 1 RSM VPL*/
-void pre_shading(Shader& preshade_program, scene& s, quad& screen, shadow_data& light_data, framebuffer& gbuffer, framebuffer& preshade, framebuffer& depth_buffer, framebuffer& rsm_buffer, int N, float rad, int turn);
-
-void RSM_experimental(quad& screen_quad, scene& s, shadow_data& light_data, RSM_parameters& rsm_data, framebuffer& gbuffer, framebuffer& depth_buffer, framebuffer& rsm_buffer, framebuffer& preshade);
-
-int main(int argc, char **argv) {
+/*DUMMY GBUFFER RENDERING PASS*/
+//Receives a framebuffer, a shader program and a quad
+void dummy_rendering(framebuffer& buffer, Shader& s, quad& q) {
 	
-	//TODO : 
-	//1 -MAKE LIGHT CALCULATIONS WITH DIRECTIONAL LIGHT - DONE X
-	//2 -IMPLEMENT G BUFFER - DONE X
-	//3 -IMPLEMENT REFLECTIVE SHADOW MAP ALGORITHM - DONE X
-	//4 -IMPLEMENT DEEP G BUFFER - DONE X 
-	//5 -RENAME STRUCT SHADOW_MAP TO SHADOW_DATA - DONE X
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	
+	s.use();
+	GLCall(glActiveTexture(GL_TEXTURE0));
+	s.setInt("gposition",0);
+	glBindTexture(GL_TEXTURE_2D, buffer.pos);
 
-	//6 -EXPERIMENT WITH RADIOSITY + REFLECTIVE SHADOW MAP - WIP
+	GLCall(glActiveTexture(GL_TEXTURE1));
+	s.setInt("gnormal", 1);
+	glBindTexture(GL_TEXTURE_2D, buffer.normal);
+
+	GLCall(glActiveTexture(GL_TEXTURE2));
+	s.setInt("galbedo", 2 );
+	glBindTexture(GL_TEXTURE_2D, buffer.albedo);
+
+	q.renderQuad();
+}
+
+//Draw instanced spheres
+void draw_spheres(framebuffer& buffer, scene& sphere_scene, Model& sphere, Shader& sphereShader, GLuint sphereVAO, glm::vec3 mid) {
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	sphereShader.use();
+
+	glActiveTexture(GL_TEXTURE0);
+	sphereShader.setInt("gposition", 0);
+	glBindTexture(GL_TEXTURE_2D, buffer.pos);
+
+	glActiveTexture(GL_TEXTURE1);
+	sphereShader.setInt("gnormal", 1);
+	glBindTexture(GL_TEXTURE_2D, buffer.normal);
+
+	glActiveTexture(GL_TEXTURE2);
+	sphereShader.setInt("galbedo", 2);
+	glBindTexture(GL_TEXTURE_2D, buffer.albedo);
+
+	sphereShader.setMat4("P", sphere_scene.proj);
+	sphereShader.setMat4("V", sphere_scene.view);
+
+	glm::mat4 mod = glm::translate(glm::mat4(1.0), -mid);
+	glm::scale(mod, glm::vec3(5.0));
+
+	sphereShader.setMat4("M", mod);
+
+	GLCall(glBindVertexArray(sphereVAO));
+	GLCall(glDrawElementsInstanced(GL_TRIANGLES, sphere.get_indices().size(), GL_UNSIGNED_INT, 0, 3));
+}
+
+void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO, Model& sphere);
+
+int main(int argc, char **argv) {	
+
+	//TODO:
+	//1 - SAMPLE RSM
+	//2 - DRAW INSTANCED SPHERES
 		
 	/*-----parameters----*/
 	float Wid = 1240.0f;
@@ -169,8 +264,16 @@ int main(int argc, char **argv) {
 		
 	w.set_kb(kbfunc);
 	w.set_mouse(mfunc);
-	/*---------------------------------*/
-			
+	glfwSwapInterval(0);
+	/*--------IMGUI INITIALIZATION---------*/	
+	init_gui(w.wnd);
+
+	/*------- LOAD SPHERICAL MESH---------*/
+	mesh_loader m(sphere_path);
+	Model sphere = m.get_mesh();
+	Shader sphere_shader("shaders/spheres_vert.glsl", "shaders/spheres_frag.glsl");
+	glm::vec3 sphere_mid = m.bb_mid;
+
 	//Resize sponza
 	sponza.mesh = new mesh_loader(sponza_path);
 	sponza.bb_mid = sponza.mesh->bb_mid * 0.05f;
@@ -179,17 +282,19 @@ int main(int argc, char **argv) {
 	sponza.n_val = n_v;
 	sponza.f_val = f_v;
 
-	glm::vec3 eyePos = sponza.bb_mid + glm::vec3(0,20,0);
-	sponza.shader = new Shader("shaders/screen_quad_vert.glsl", "shaders/RSM_VPL_shading_frag.glsl", nullptr);
+		
+	glm::vec3 eyePos = sponza.bb_mid + glm::vec3(0, 20, 0);
+	sponza.shader = new Shader("shaders/screen_quad_vert.glsl", "shaders/sponza_frag.glsl", nullptr);
 	sponza.camera = new Camera(eyePos);
-	sponza.view = sponza.camera->GetViewMatrix();	
+	sponza.view = sponza.camera->GetViewMatrix();
 		
 	/*--- SHADOW MAP LIGHT TRANSFORMS---*/		
-	shadowmap.s_w = 1024.0f;
-	shadowmap.s_h = 1024.0f;
+	shadowmap.s_w = 512.0f;
+	shadowmap.s_h = 512.0f;
 	shadowmap.s_near = 0.1f;
 	shadowmap.s_far = 400.0f;
 
+	//previous -48 / 48 -15 / 15 or -60 60 -50 50
 	shadowmap.proj = glm::ortho(-48.0f, 48.0f, -15.0f, 15.0f, shadowmap.s_near, shadowmap.s_far);
 	
 	glm::vec3 l_pos = sponza.bb_mid + glm::vec3(0, 100, 0); // light position
@@ -211,18 +316,17 @@ int main(int argc, char **argv) {
 	/*----OPENGL Enable/Disable functions----*/
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
-	glClearColor(0.5, 0.8, 0.9, 1.0); 	
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	//glClearColor(0.5, 0.8, 0.9, 1.0); 	
 
 	/* ---------------- G-BUFFER ----------------*/
 	framebuffer gbuffer(fbo_type::G_BUFFER, w.Wid, w.Hei, 0);
 	Shader geometry_pass ("shaders/deferred_render_vert.glsl", "shaders/deferred_render_frag.glsl");
 	
-	/* -------------- RSM BUFFER ----------------*/
-		
-	rsm_param.rsm_w = 1024.0f;
-	rsm_param.rsm_h = 1024.0f;
-	const int vpl_count = 32 * 32;
-
+	/* -------------- RSM BUFFER ----------------*/		
+	rsm_param.rsm_w = 512.0f;
+	rsm_param.rsm_h = 512.0f;
+	
 	framebuffer rsm_buffer(fbo_type::RSM, rsm_param.rsm_w, rsm_param.rsm_h, 0);
 	Shader RSM_pass("shaders/rsm_vert.glsl", "shaders/rsm_frag.glsl");
 
@@ -230,66 +334,97 @@ int main(int argc, char **argv) {
 	generate_rsm_sampling_pattern(rsm_param.pattern);
 
 	/* ------------ DEEP G BUFFER - 2 LAYER ----------*/
-
 	float Delta = 0.5f;
 	const int Layers = 2;
 	framebuffer deepgbuffer(fbo_type::DEEP_G_BUFFER,  Wid, Hei, Layers);
 	Shader dgb_program("shaders/deep_g_buffer_vert.glsl", "shaders/deep_g_buffer_frag.glsl", "shaders/deep_g_buffer_geom.glsl");
 	Shader dgb_debug_view("shaders/screen_quad_vert.glsl","shaders/dgb_debug_view_frag.glsl");
+	
+	/* ---- BLUR ----*/
+	Shader blur_program("shaders/screen_quad_vert.glsl", "shaders/blur_pass_frag.glsl");
+	framebuffer blur(fbo_type::COLOR_BUFFER, Wid, Hei, 0);
 
-	/* ------------RADIOSITY BUFFER ------------------*/
-	//McGuire radiosity
-	framebuffer radiosity(fbo_type::RADIOSITY_PARAM, Wid, Hei, Layers);
-	Shader deep_radiosity("shaders/screen_quad_vert.glsl", "shaders/radiosity_frag.glsl", "shaders/radiosity_geom.glsl");
-	Shader radiosity_shading("shaders/screen_quad_vert.glsl", "shaders/radiosity_shade_frag.glsl");
+	/*-----DUMMY RENDERING-PROGRAM-----*/
+	Shader dummy_program("shaders/screen_quad_vert.glsl", "shaders/gbuffer_shade_frag.glsl");
 
-	unsigned int N = 13;
-	unsigned int turns = minDiscrepancyArray[N];
-	float radius = 0.5f; //in world units
+	shadowmap.model = sponza.model;
 
-	/* ---- EXPERIMENTAL ---- */	
-	framebuffer indirect(fbo_type::PRE_SHADE_EXPERIMENTAL, Wid, Hei, 0);
-	Shader indirect_program("shaders/screen_quad_vert.glsl", "shaders/pre_shade_frag.glsl");
-
+	double t0, tf, delta_t;
+	t0 = tf = delta_t = 0;
+	t0 = glfwGetTime();		
 	//main loop
-	while (!w.should_close()) {
-			
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	
+
+
+	/*--- SPHERE VBO CREATION ---*/
+	GLuint sphereVAO;
+	GLuint sphereVBO;
+	GLuint sphereIBO;
+	create_sphere_vao(sphereVAO, sphereVBO, sphereIBO, sphere);
+
+	/* DEBUG INSTANCE TRANSFORMS */
+
+	std::vector<glm::vec3> translations(3);
+	translations[0] = sponza.bb_mid;
+	translations[1] = sponza.bb_mid - glm::vec3(0.0, 10, 0);
+	translations[2] = sponza.bb_mid + glm::vec3(0.0, 10, 0);
+
+
+	GLuint instanceVBO;
+	GLCall(glGenBuffers(1, &instanceVBO));
+	GLCall(glBindBuffer(GL_ARRAY_BUFFER, instanceVBO));
+	GLCall(glBufferData(GL_ARRAY_BUFFER, translations.size() * sizeof(glm::vec3), translations.data(), GL_STATIC_DRAW));
+	GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
+
+	GLCall(glBindVertexArray(sphereVAO));
+	GLCall(glEnableVertexAttribArray(3));
+	GLCall(glBindBuffer(GL_ARRAY_BUFFER, instanceVBO));
+	GLCall(glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0));
+	GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
+	GLCall(glVertexAttribDivisor(3, 1));	
+	GLCall(glBindVertexArray(0));
+
+
+	while (!w.should_close()) {			
+
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);		
 		
-		shadowmap.model = sponza.model;
 		/*---- SHADOW MAP PASS ----*/
 		shadow_pass(shadowmap, depthBuffer, *sponza.mesh);
 		/*------- LIGHT SPACE MATRIX -------*/
 		shadowmap.light_space_mat = shadowmap.proj * shadowmap.view;		
 		/*---------RSM_Pass--------*/
-		rsm_pass(RSM_pass, rsm_buffer, shadowmap);			
+		rsm_pass(RSM_pass, rsm_buffer, shadowmap);	
+		/* -------G BUFFER PASS------*/			
+		gbuffer_pass(gbuffer, geometry_pass, sponza);
 
+
+		/*-----ACTUAL RENDERING-----*/
 		if (!debug_view)
-		{						
-			///* -------G BUFFER PASS------*/
-			gbuffer_pass(gbuffer, geometry_pass, sponza);			
-			///* ------ SHADING PASS ------*/
-			//rsm_shading_pass(screen_quad, sponza, shadowmap, rsm_param, gbuffer, depthBuffer, rsm_buffer);			
-			pre_shading(indirect_program, sponza, screen_quad,shadowmap, gbuffer, indirect, depthBuffer, rsm_buffer, N, radius, turns);
+		{				
+			dummy_rendering(gbuffer, dummy_program, screen_quad);	
 
-			RSM_experimental(screen_quad, sponza, shadowmap, rsm_param, gbuffer, depthBuffer, rsm_buffer, indirect);					
-			///*------- DEEP G BUFFER PASS ------*/
-			//deep_g_buffer_pass(dgb_program, deepgbuffer, sponza, Delta);
-			///*-------------PRE-SHADING -------------*/
-			////deep_g_buffer_debug(dgb_debug_view, deepgbuffer, screen_quad, shadowmap, sponza, depthBuffer);			
-			//pre_radiosity_pass(deep_radiosity, radiosity, deepgbuffer, shadowmap, screen_quad);
-			///* -----------GI-----------*/
-			//screen_space_radiosity(screen_quad, radiosity_shading, radiosity, deepgbuffer, depthBuffer, sponza, shadowmap, N, radius,turns);			
+			//draw_spheres(gbuffer, sponza, sphere, sphere_shader, sphereVAO, sphere_mid);
 		}
+
 		else		
 		{
 			/* ---- DEBUG VIEW ---- */
 			render_debug_view(w, depthView, screen_quad, shadowmap, depthBuffer);			
 		}
 		
+		{
+			tf = glfwGetTime();
+			delta_t = (tf - t0) * 1000.0;
+			t0 = tf;
+			render_gui(delta_t);
+		}
+
 		w.swap();	
 		w.poll_ev();
 	}		
+	
+
+	destroy_gui();
 	
 	glfwTerminate();	
 	if (sponza.mesh)
@@ -300,6 +435,7 @@ int main(int argc, char **argv) {
 		delete sponza.camera;
 	if (shadowmap.shader)
 		delete shadowmap.shader;
+	
 		
 	return 0;
 }
@@ -333,14 +469,14 @@ void kbfunc(GLFWwindow* window, int key, int scan, int action, int mods) {
 
 
 	if (key == GLFW_KEY_B && (action == GLFW_PRESS)) {
-		//sponza.camera->print_camera_coords();
+		sponza.camera->print_camera_coords();
 		//On pressing B, light will be updated to the current position, direction  and up of the camera
 		//lightDir = -sponza.camera->Front;
 		//ref_pos = sponza.camera->Position;
 		//ref_up = sponza.camera->Up;
 		//ref_front = sponza.camera->Front;
 		//shadowmap.view = glm::lookAt(ref_pos, ref_front, ref_up);
-		std::cout << "value of r_max is = " << rsm_param.r_max << std::endl;
+		
 	}
 
 	if (key == GLFW_KEY_P && (action == GLFW_PRESS)) {
@@ -362,7 +498,6 @@ void kbfunc(GLFWwindow* window, int key, int scan, int action, int mods) {
 		rsm_shading = !rsm_shading;
 	}
 }
-
 //mouse function
 void mfunc(GLFWwindow *window, double xpos, double ypos) {
 	int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
@@ -449,6 +584,7 @@ void rsm_pass(Shader& RSM_pass, framebuffer& rsm, shadow_data& light_data) {
 	RSM_pass.setMat4("V", light_data.view);
 	RSM_pass.setMat4("M", light_data.model);
 	RSM_pass.setFloat("lightColor", 0.65f);
+	RSM_pass.setVec3("lightDir", light_data.lightDir);
 	rsm.bind();
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 	sponza.mesh->Draw(RSM_pass);
@@ -467,49 +603,6 @@ void gbuffer_pass(framebuffer& gbuffer, Shader& gbuf_program, scene& s) {
 	gbuf_program.setMat4("P", s.proj);
 	s.mesh->Draw(gbuf_program);
 	gbuffer.unbind();
-}
-
-void rsm_shading_pass(quad& screen_quad, scene& s, shadow_data& light_data, RSM_parameters& rsm_data, framebuffer& gbuffer, framebuffer& depth_buffer, framebuffer& rsm_buffer) {
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	s.view = s.camera->GetViewMatrix();
-	s.shader->use();
-	GLCall(glActiveTexture(GL_TEXTURE0));
-	s.shader->setInt("gposition", 0);
-	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.pos));
-	GLCall(glActiveTexture(GL_TEXTURE1));
-	s.shader->setInt("gnormal", 1);
-	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.normal));
-	GLCall(glActiveTexture(GL_TEXTURE2));
-	s.shader->setInt("galbedo", 2);
-	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.albedo));
-	GLCall(glActiveTexture(GL_TEXTURE3));
-	s.shader->setInt("shadow_map", 3);
-	GLCall(glBindTexture(GL_TEXTURE_2D, depth_buffer.depth_map));
-
-	GLCall(glActiveTexture(GL_TEXTURE4));
-	s.shader->setInt("rsm_position", 4);
-	GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.pos));
-	GLCall(glActiveTexture(GL_TEXTURE5));
-	s.shader->setInt("rsm_normal", 5);
-	GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.normal));
-	GLCall(glActiveTexture(GL_TEXTURE6));
-	s.shader->setInt("rsm_flux", 6);
-	GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.albedo));
-
-	s.shader->setMat4("LightSpaceMat", light_data.light_space_mat);
-	s.shader->setVec3("eyePos", s.camera->Position);
-	s.shader->setVec3("lightDir", light_data.lightDir);
-	s.shader->setVec3("lightColor", light_data.lightColor);
-	s.shader->setFloat("rmax", rsm_data.r_max);
-
-	for (int i = 0; i < rsm_data.SAMPLING_SIZE; ++i) {
-		std::string loc = "samples[" + std::to_string(i) + "]";
-		s.shader->setVec2(loc, rsm_data.pattern[i]);
-	}
-
-	screen_quad.renderQuad();
 }
 
 void deep_g_buffer_pass(Shader& dgb_program, framebuffer& dgbuffer, scene& s, float delta) {
@@ -569,145 +662,42 @@ void deep_g_buffer_debug(Shader& debug_view, framebuffer& dgb, quad& screen, sha
 	screen.renderQuad();
 }
 
-void pre_radiosity_pass(Shader& radio, framebuffer& r_buffer, framebuffer& dgbuffer, shadow_data& light_data, quad& screen) {
-
-	r_buffer.bind();
+void blur_pass(quad& screen,unsigned int source_id, Shader& blur_program, framebuffer& blur_buffer) {
+	
+	blur_buffer.bind();
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	radio.use();
-
-	glActiveTexture(GL_TEXTURE1);
-	radio.setInt("gnormal", 1);
-	glBindTexture(GL_TEXTURE_2D_ARRAY, dgbuffer.normal);
-
-	glActiveTexture(GL_TEXTURE2);
-	radio.setInt("galbedo", 2);
-	glBindTexture(GL_TEXTURE_2D_ARRAY, dgbuffer.albedo);
-
-	radio.setInt("LAYERS", r_buffer.layers);
-	radio.setVec3("lightDir",   light_data.lightDir);
-	radio.setVec3("lightColor", light_data.lightColor);
-
-	screen.renderQuad();
-
-	r_buffer.unbind();
-
-}
-
-void screen_space_radiosity(quad& screenquad, Shader& radiosity_program, framebuffer& radbuffer, framebuffer& dgbuffer, framebuffer& depth, scene& s, shadow_data& light_data, int N, float rad, int turn){
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	radiosity_program.use();
-	glActiveTexture(GL_TEXTURE0);
-	radiosity_program.setInt("gposition", 0);
-	glBindTexture(GL_TEXTURE_2D_ARRAY, dgbuffer.pos);
-
-	glActiveTexture(GL_TEXTURE1);
-	radiosity_program.setInt("gnormal", 1);
-	glBindTexture(GL_TEXTURE_2D_ARRAY, dgbuffer.normal);
-
-	glActiveTexture(GL_TEXTURE2);
-	radiosity_program.setInt("galbedo", 2);
-	glBindTexture(GL_TEXTURE_2D_ARRAY, dgbuffer.albedo);
-
-	glActiveTexture(GL_TEXTURE3);
-	radiosity_program.setInt("shadow_map", 3);
-	glBindTexture(GL_TEXTURE_2D, depth.depth_map);
-
-	glActiveTexture(GL_TEXTURE4);
-	radiosity_program.setInt("gradiosity", 4);
-	glBindTexture(GL_TEXTURE_2D_ARRAY, radbuffer.albedo);
-
-	radiosity_program.setVec3("eyePos", s.camera->Position);
-	radiosity_program.setVec3("lightDir", light_data.lightDir);
-	radiosity_program.setVec3("lightColor", light_data.lightColor);
-	radiosity_program.setMat4("LightSpaceMat", light_data.light_space_mat);
-	radiosity_program.setInt("samples", N);
-	radiosity_program.setInt("layers", dgbuffer.layers);
-	radiosity_program.setFloat("radius", rad);                            
-	radiosity_program.setFloat("turn", turn);
-
-	screenquad.renderQuad();
-}
-
-/* EXPERIMENTAL*/
-#define RSM_EXPERIMENTAL_SAMPLE_SIZE 3
-
-void pre_shading(Shader& preshade_program ,scene& s, quad& screen, shadow_data& light_data, framebuffer& gbuffer, framebuffer& preshade, framebuffer& depth_buffer, framebuffer& rsm_buffer, int N, float rad, int turn) {
-		
-	preshade.bind();
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	
-
-	preshade_program.use();
+	blur_program.use();
 
 	GLCall(glActiveTexture(GL_TEXTURE0));
-	preshade_program.setInt("gposition", 0);
-	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.pos));
-
-	GLCall(glActiveTexture(GL_TEXTURE1));
-	preshade_program.setInt("gnormal", 1);
-	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.normal));
-
-	GLCall(glActiveTexture(GL_TEXTURE2));
-	preshade_program.setInt("galbedo", 2);
-	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.albedo));
-
-	GLCall(glActiveTexture(GL_TEXTURE3));
-	preshade_program.setInt("shadow_map", 3);
-	GLCall(glBindTexture(GL_TEXTURE_2D, depth_buffer.depth_map));
-
-	GLCall(glActiveTexture(GL_TEXTURE4));
-	preshade_program.setInt("rsm_pos", 4);
-	GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.pos));
-
-	GLCall(glActiveTexture(GL_TEXTURE5));
-	preshade_program.setInt("rsm_normal", 5);
-	GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.normal));
-
-	GLCall(glActiveTexture(GL_TEXTURE6));
-	preshade_program.setInt("rsm_flux", 6);
-	GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.albedo));
-
-	preshade_program.setMat4("LightSpaceMat", light_data.light_space_mat);
-	preshade_program.setInt("N_samples", N);
-	preshade_program.setInt("turns", turn);
-	preshade_program.setFloat("radius", rad);
-	
-	screen.renderQuad();
-
-	preshade.unbind();
-}
-
-
-void RSM_experimental(quad& screen, scene& s, shadow_data& light_data, RSM_parameters& rsm_data, framebuffer& gbuffer, framebuffer& depth_buffer, framebuffer& rsm_buffer, framebuffer& preshade) {
-	
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	s.view = s.camera->GetViewMatrix();
-	s.shader->use();
-	GLCall(glActiveTexture(GL_TEXTURE0));
-	s.shader->setInt("gposition", 0);
-	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.pos));
-	GLCall(glActiveTexture(GL_TEXTURE1));
-	s.shader->setInt("gnormal", 1);
-	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.normal));
-	GLCall(glActiveTexture(GL_TEXTURE2));
-	s.shader->setInt("galbedo", 2);
-	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.albedo));
-	
-	GLCall(glActiveTexture(GL_TEXTURE3));
-	s.shader->setInt("shadow_map", 3);
-	GLCall(glBindTexture(GL_TEXTURE_2D, depth_buffer.depth_map));	
-
-	GLCall(glActiveTexture(GL_TEXTURE4));
-	s.shader->setInt("preshade_buffer", 4);
-	GLCall(glBindTexture(GL_TEXTURE_2D, preshade.albedo));
-	
-	s.shader->setMat4("LightSpaceMat", light_data.light_space_mat);
-	s.shader->setVec3("eyePos", s.camera->Position);
-	s.shader->setVec3("lightDir", light_data.lightDir);
-	s.shader->setVec3("lightColor", light_data.lightColor);	
+	blur_program.setInt("source", 0);
+	GLCall(glBindTexture(GL_TEXTURE_2D, source_id));
 
 	screen.renderQuad();
+	blur_buffer.unbind();
 }
 
+void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO , Model& sphere) {
+	GLCall(glGenVertexArrays(1, &sphereVAO));
+	GLCall(glGenBuffers(1, &sphereVBO));
+	GLCall(glGenBuffers(1, &sphereIBO));
+
+	GLCall(glBindVertexArray(sphereVAO));
+	int size = 0;
+	GLCall(glBindBuffer(GL_ARRAY_BUFFER, sphereVBO));
+	size = sphere.get_verts().size() * sizeof(vertex);
+	GLCall(glBufferData(GL_ARRAY_BUFFER, size, sphere.get_verts().data(), GL_STATIC_DRAW));
+
+	GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereIBO));
+	size = sphere.get_indices().size() * sizeof(unsigned int);
+	GLCall(glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, sphere.get_indices().data(), GL_STATIC_DRAW));
+
+	GLCall(glEnableVertexAttribArray(0));
+	GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)0));
+
+	GLCall(glEnableVertexAttribArray(1));
+	GLCall(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, uv)));
+
+	GLCall(glEnableVertexAttribArray(2));
+	GLCall(glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, normal)));
+	GLCall(glBindVertexArray(0));
+}

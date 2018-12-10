@@ -34,6 +34,15 @@ public:
 	~Model();
 
 	void Draw(Shader shader);
+	
+	std::vector<vertex>& get_verts() {
+		return vertices;
+	};
+
+
+	std::vector<unsigned int>& get_indices() {
+		return indices;
+	};
 
 private:
 

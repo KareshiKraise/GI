@@ -3,13 +3,15 @@
 #include "stb_image.h"
 #include <iostream>
 
-mesh_loader::mesh_loader() {
+mesh_loader::mesh_loader() 
+{
+
 }
 
-mesh_loader::mesh_loader(const char* path)
+mesh_loader::mesh_loader(const char* path, model_type type)
 {
 	std::cout << "loading model at : " << path << std::endl;
-	loadModel(path);
+	loadModel(path);	
 	bb_center();
 	std::cout << "model loaded" << std::endl;
 }
@@ -18,7 +20,7 @@ void mesh_loader::Draw(Shader shader)
 {
 	for (auto& m : models)
 	{
-		m.Draw(shader);
+		m.Draw(shader);		
 	}
 }
 
@@ -27,8 +29,9 @@ void mesh_loader::loadModel(std::string path)
 #ifdef SHOW_MSG
 	std::cout << "inside load model" << std::endl;
 #endif
-	Assimp::Importer importer;
-	const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs );
+	Assimp::Importer importer; 
+	//aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
+	const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
 
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 	{

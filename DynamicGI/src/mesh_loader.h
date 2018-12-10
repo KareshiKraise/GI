@@ -8,17 +8,28 @@
 
 unsigned int TextureFromFile(const char *path, const std::string &directory, bool gamma);
 
+enum class model_type {
+	TEXTURED = 1,
+	NO_TEXTURE = 2,
+};
+
+
 class mesh_loader
 {
 public:
 
 	mesh_loader();
 
-	mesh_loader(const char *path);	
+	mesh_loader(const char *path, model_type type = model_type::TEXTURED);		
 
 	void Draw(Shader shader);
 	void bb_center();
 	glm::vec3 bb_mid;
+
+	Model get_mesh() {
+		std::cout << "models vector has " << models.size() << " models" << std::endl;
+		return models.back();
+	}
 private:
 
 	std::vector<Model> models;

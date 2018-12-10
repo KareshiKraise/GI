@@ -6,7 +6,7 @@ CC		= gcc
 
 # flags for C++ compiler:
 CFLAGS		= -g 
-CXXFLAGS	= -g
+CXXFLAGS	= -g -std=c++11
 
 # libraries to link with:
 

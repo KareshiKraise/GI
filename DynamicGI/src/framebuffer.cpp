@@ -52,7 +52,7 @@ framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 
 			std::cout << " radiosity fbo complete" << std::endl;
 	}
 
-	else if (type == fbo_type::PRE_SHADE_EXPERIMENTAL) {
+	else if (type == fbo_type::COLOR_BUFFER) {
 		fb_type = type;
 		w_res = w;
 		h_res = h;
@@ -312,11 +312,10 @@ bool framebuffer::gen_indirect_buffer() {
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	float border_col[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	GLCall(glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_col));
+
 	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, albedo, 0));
-
-	float border_col[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	GLCall(glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, border_col));
-
 
 	glDrawBuffer(GL_COLOR_ATTACHMENT0);
 

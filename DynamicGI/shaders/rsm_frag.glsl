@@ -11,12 +11,13 @@ in VS_OUT{
 } fs_in;
 
 uniform float lightColor;
+uniform vec3 lightDir;
 uniform sampler2D texture_diffuse1;
 
 
 void main() {
 	rsm_position = fs_in.pos;
 	rsm_normal = fs_in.normal;
-	vec3 flux = texture(texture_diffuse1, fs_in.tex).rgb * lightColor;
+	vec3 flux = texture(texture_diffuse1, fs_in.tex).rgb * lightColor * clamp(dot(rsm_normal, lightDir), 0.0, 1.0);
 	rsm_flux = vec4(flux, 1.0);		
 }

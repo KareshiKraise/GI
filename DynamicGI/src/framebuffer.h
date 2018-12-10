@@ -9,7 +9,7 @@ enum class fbo_type {
 	G_BUFFER = 0X03,
 	DEEP_G_BUFFER = 0X04,
 	RADIOSITY_PARAM = 0x05,
-	PRE_SHADE_EXPERIMENTAL = 0X06 
+	COLOR_BUFFER = 0X06  //general purpose single render target albedo buffer
 };
 
 class framebuffer {
