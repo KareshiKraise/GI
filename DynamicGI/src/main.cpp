@@ -22,9 +22,11 @@
 #include "third_party/imgui_impl_glfw.h"
 #include "third_party/imgui_impl_opengl3.h"
 
+
 //GLOBAL CONSTANTS
 const float PI = 3.1415926f;
 const float PI_TWO = 6.2831853;
+const int VPL_SAMPLES = 16 * 16;
 
 //scene and model paths
 const char* sponza_path = "models/sponza/sponza.obj";
@@ -158,7 +160,7 @@ void render_gui(double delta) {
 
 	//IMGUI scope
 	{
-		ImGui::Begin("Timer");
+		ImGui::Begin("CPU Timer");
 		ImGui::Text("%f miliseconds per frame", delta);	
 		ImGui::End();
 	}
@@ -172,6 +174,7 @@ void destroy_gui() {
 	ImGui::DestroyContext();
 }
 
+//debug instancing pos
 std::vector<glm::vec3> gen_instance_positions() {
 	std::vector<glm::vec3> pos(3);
 	pos.emplace_back(glm::vec3(-44.1766, 10.5945, -0.764266));
@@ -181,6 +184,20 @@ std::vector<glm::vec3> gen_instance_positions() {
 	return pos;
 }
 
+//generate uniform distribution for RSM sampling
+std::vector<glm::vec2> gen_uniform_samples(unsigned int s ) {
+	std::uniform_real_distribution<float> randomFloats(0.0, 0.9);
+	std::default_random_engine gen;
+	std::vector<glm::vec2> samples(s);
+	
+	for (int i = 0; i < s; i++) {
+		glm::vec2 val{0,0};
+		val.x = randomFloats(gen);
+		val.y = randomFloats(gen);
+		samples[i]=val;
+	}
+	return samples;
+}
 
 /*DUMMY GBUFFER RENDERING PASS*/
 //Receives a framebuffer, a shader program and a quad
@@ -206,35 +223,35 @@ void dummy_rendering(framebuffer& buffer, Shader& s, quad& q) {
 
 //Draw instanced spheres
 void draw_spheres(framebuffer& buffer, scene& sphere_scene, Model& sphere, Shader& sphereShader, GLuint sphereVAO, glm::vec3 mid) {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	sphereShader.use();
 
 	glActiveTexture(GL_TEXTURE0);
-	sphereShader.setInt("gposition", 0);
+	sphereShader.setInt("rsmposition", 0);
 	glBindTexture(GL_TEXTURE_2D, buffer.pos);
 
 	glActiveTexture(GL_TEXTURE1);
-	sphereShader.setInt("gnormal", 1);
+	sphereShader.setInt("rsmnormal", 1);
 	glBindTexture(GL_TEXTURE_2D, buffer.normal);
 
 	glActiveTexture(GL_TEXTURE2);
-	sphereShader.setInt("galbedo", 2);
+	sphereShader.setInt("rsmflux", 2);
 	glBindTexture(GL_TEXTURE_2D, buffer.albedo);
 
 	sphereShader.setMat4("P", sphere_scene.proj);
 	sphereShader.setMat4("V", sphere_scene.view);
 
 	glm::mat4 mod = glm::translate(glm::mat4(1.0), -mid);
-	glm::scale(mod, glm::vec3(5.0));
+	glm::scale(mod, glm::vec3(15.0));
 
 	sphereShader.setMat4("M", mod);
 
 	GLCall(glBindVertexArray(sphereVAO));
-	GLCall(glDrawElementsInstanced(GL_TRIANGLES, sphere.get_indices().size(), GL_UNSIGNED_INT, 0, 3));
+	GLCall(glDrawElementsInstanced(GL_TRIANGLES, sphere.get_indices().size(), GL_UNSIGNED_INT, 0, VPL_SAMPLES));
 }
 
-void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO, Model& sphere);
+void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO, GLuint& instanceVBO, Model& sphere);
 
 int main(int argc, char **argv) {	
 
@@ -265,6 +282,7 @@ int main(int argc, char **argv) {
 	w.set_kb(kbfunc);
 	w.set_mouse(mfunc);
 	glfwSwapInterval(0);
+	
 	/*--------IMGUI INITIALIZATION---------*/	
 	init_gui(w.wnd);
 
@@ -282,8 +300,8 @@ int main(int argc, char **argv) {
 	sponza.n_val = n_v;
 	sponza.f_val = f_v;
 
-		
-	glm::vec3 eyePos = sponza.bb_mid + glm::vec3(0, 20, 0);
+	//sponza.bb_mid + glm::vec3(0, 20, 0)
+	glm::vec3 eyePos = glm::vec3(0, 0, 0);
 	sponza.shader = new Shader("shaders/screen_quad_vert.glsl", "shaders/sponza_frag.glsl", nullptr);
 	sponza.camera = new Camera(eyePos);
 	sponza.view = sponza.camera->GetViewMatrix();
@@ -316,8 +334,7 @@ int main(int argc, char **argv) {
 	/*----OPENGL Enable/Disable functions----*/
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
-	glClearColor(0.0, 0.0, 0.0, 1.0);
-	//glClearColor(0.5, 0.8, 0.9, 1.0); 	
+	glClearColor(0.5, 0.8, 0.9, 1.0); 	
 
 	/* ---------------- G-BUFFER ----------------*/
 	framebuffer gbuffer(fbo_type::G_BUFFER, w.Wid, w.Hei, 0);
@@ -346,48 +363,25 @@ int main(int argc, char **argv) {
 
 	/*-----DUMMY RENDERING-PROGRAM-----*/
 	Shader dummy_program("shaders/screen_quad_vert.glsl", "shaders/gbuffer_shade_frag.glsl");
-
 	shadowmap.model = sponza.model;
-
-	double t0, tf, delta_t;
-	t0 = tf = delta_t = 0;
-	t0 = glfwGetTime();		
-	//main loop
-
 
 	/*--- SPHERE VBO CREATION ---*/
 	GLuint sphereVAO;
 	GLuint sphereVBO;
 	GLuint sphereIBO;
-	create_sphere_vao(sphereVAO, sphereVBO, sphereIBO, sphere);
-
-	/* DEBUG INSTANCE TRANSFORMS */
-
-	std::vector<glm::vec3> translations(3);
-	translations[0] = sponza.bb_mid;
-	translations[1] = sponza.bb_mid - glm::vec3(0.0, 10, 0);
-	translations[2] = sponza.bb_mid + glm::vec3(0.0, 10, 0);
-
-
 	GLuint instanceVBO;
-	GLCall(glGenBuffers(1, &instanceVBO));
-	GLCall(glBindBuffer(GL_ARRAY_BUFFER, instanceVBO));
-	GLCall(glBufferData(GL_ARRAY_BUFFER, translations.size() * sizeof(glm::vec3), translations.data(), GL_STATIC_DRAW));
-	GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
+	create_sphere_vao(sphereVAO, sphereVBO, sphereIBO, instanceVBO ,sphere);
+	
+	double t0, tf, delta_t;
+	t0 = tf = delta_t = 0;
+	t0 = glfwGetTime();
 
-	GLCall(glBindVertexArray(sphereVAO));
-	GLCall(glEnableVertexAttribArray(3));
-	GLCall(glBindBuffer(GL_ARRAY_BUFFER, instanceVBO));
-	GLCall(glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0));
-	GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
-	GLCall(glVertexAttribDivisor(3, 1));	
-	GLCall(glBindVertexArray(0));
-
-
+	//main loop
 	while (!w.should_close()) {			
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);		
 		
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		/*---- SHADOW MAP PASS ----*/
 		shadow_pass(shadowmap, depthBuffer, *sponza.mesh);
 		/*------- LIGHT SPACE MATRIX -------*/
@@ -400,10 +394,18 @@ int main(int argc, char **argv) {
 
 		/*-----ACTUAL RENDERING-----*/
 		if (!debug_view)
-		{				
-			dummy_rendering(gbuffer, dummy_program, screen_quad);	
+		{		
+					
+			dummy_rendering(gbuffer, dummy_program, screen_quad);
 
-			//draw_spheres(gbuffer, sponza, sphere, sphere_shader, sphereVAO, sphere_mid);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, gbuffer.fbo);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+			glBlitFramebuffer(0, 0, Wid, Hei, 0, 0, Wid, Hei, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+					
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			draw_spheres(rsm_buffer, sponza, sphere, sphere_shader, sphereVAO, sphere_mid);
+			
 		}
 
 		else		
@@ -676,7 +678,7 @@ void blur_pass(quad& screen,unsigned int source_id, Shader& blur_program, frameb
 	blur_buffer.unbind();
 }
 
-void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO , Model& sphere) {
+void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO, GLuint& instanceVBO , Model& sphere) {
 	GLCall(glGenVertexArrays(1, &sphereVAO));
 	GLCall(glGenBuffers(1, &sphereVBO));
 	GLCall(glGenBuffers(1, &sphereIBO));
@@ -699,5 +701,23 @@ void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO ,
 
 	GLCall(glEnableVertexAttribArray(2));
 	GLCall(glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, normal)));
+	GLCall(glBindVertexArray(0));
+	
+	std::vector<glm::vec2> samples = gen_uniform_samples(VPL_SAMPLES);
+	if (samples.size() > 0) {
+		std::cout << "generated " << samples.size() << " samples succesfully" << std::endl; 
+	}
+		
+	GLCall(glGenBuffers(1, &instanceVBO));
+	GLCall(glBindBuffer(GL_ARRAY_BUFFER, instanceVBO));
+	GLCall(glBufferData(GL_ARRAY_BUFFER, samples.size() * sizeof(glm::vec2), samples.data(), GL_STATIC_DRAW));
+	GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
+
+	GLCall(glBindVertexArray(sphereVAO));
+	GLCall(glEnableVertexAttribArray(3));
+	GLCall(glBindBuffer(GL_ARRAY_BUFFER, instanceVBO));
+	GLCall(glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0));
+	GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
+	GLCall(glVertexAttribDivisor(3, 1));
 	GLCall(glBindVertexArray(0));
 }
