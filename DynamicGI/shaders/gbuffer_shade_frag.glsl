@@ -35,7 +35,7 @@ void main() {
 	float specular = texture(galbedo, tex).a;
 
 	vec3 lightColor = vec3(1.0);
-	vec3 ambient = albedo * 0.1;
+	vec3 ambient = albedo * 0;
 
 	float diff = max(dot(lightDir, normal), 0.0f);
 	vec3 diffuse = diff * lightColor;
@@ -52,6 +52,6 @@ void main() {
 
 	vec3 lighting = (ambient + (shadow) * (glossy + diffuse)) * albedo;
 	//vec3 lighting = (ambient + glossy + diffuse) * albedo;
-	frag_color = vec4(albedo, 1.0);
+	frag_color = vec4(lighting, 1.0);
 
 }

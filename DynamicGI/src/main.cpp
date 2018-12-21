@@ -242,8 +242,10 @@ void draw_spheres(framebuffer& buffer, scene& sphere_scene, Model& sphere, Shade
 	sphereShader.setMat4("P", sphere_scene.proj);
 	sphereShader.setMat4("V", sphere_scene.view);
 
-	glm::mat4 mod = glm::translate(glm::mat4(1.0), -mid);
-	glm::scale(mod, glm::vec3(15.0));
+	glm::mat4 mod = glm::scale(glm::mat4(1.0), glm::vec3(1.0, 1.0, 1.0));
+	glm::translate(mod, -mid);
+
+	
 
 	sphereShader.setMat4("M", mod);
 
@@ -291,6 +293,7 @@ int main(int argc, char **argv) {
 	Model sphere = m.get_mesh();
 	Shader sphere_shader("shaders/spheres_vert.glsl", "shaders/spheres_frag.glsl");
 	glm::vec3 sphere_mid = m.bb_mid;
+	std::cout << "center of sphere is " << sphere_mid.x << " " << sphere_mid.y << " " << sphere_mid.z  << std::endl;
 
 	//Resize sponza
 	sponza.mesh = new mesh_loader(sponza_path);
@@ -362,7 +365,7 @@ int main(int argc, char **argv) {
 	framebuffer blur(fbo_type::COLOR_BUFFER, Wid, Hei, 0);
 
 	/*-----DUMMY RENDERING-PROGRAM-----*/
-	Shader dummy_program("shaders/screen_quad_vert.glsl", "shaders/gbuffer_shade_frag.glsl");
+	Shader dummy_program("shaders/screen_quad_vert.glsl", "shaders/dummy_rendering_frag.glsl");
 	shadowmap.model = sponza.model;
 
 	/*--- SPHERE VBO CREATION ---*/
@@ -376,12 +379,21 @@ int main(int argc, char **argv) {
 	t0 = tf = delta_t = 0;
 	t0 = glfwGetTime();
 
+
+
+	Shader dLightProgram("shaders/screen_quad_vert.glsl", "shaders/gbuffer_shade_frag.glsl");
 	//main loop
 	while (!w.should_close()) {			
 
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);		
 		
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		
+		glDepthMask(GL_TRUE);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);		
+			
+		//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+		glEnable(GL_DEPTH_TEST);
+		glDisable(GL_BLEND);
 		/*---- SHADOW MAP PASS ----*/
 		shadow_pass(shadowmap, depthBuffer, *sponza.mesh);
 		/*------- LIGHT SPACE MATRIX -------*/
@@ -391,21 +403,52 @@ int main(int argc, char **argv) {
 		/* -------G BUFFER PASS------*/			
 		gbuffer_pass(gbuffer, geometry_pass, sponza);
 
+		glDepthMask(GL_FALSE);
+		glDisable(GL_DEPTH_TEST);
 
 		/*-----ACTUAL RENDERING-----*/
 		if (!debug_view)
 		{		
-					
-			dummy_rendering(gbuffer, dummy_program, screen_quad);
-
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, gbuffer.fbo);
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-			glBlitFramebuffer(0, 0, Wid, Hei, 0, 0, Wid, Hei, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-					
-			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			draw_spheres(rsm_buffer, sponza, sphere, sphere_shader, sphereVAO, sphere_mid);
 			
+			//directional light pass
+			dLightProgram.use();
+			dLightProgram.setVec3("lightDir", shadowmap.lightDir);
+			dLightProgram.setVec3("eyePos", sponza.camera->Position);
+			dLightProgram.setMat4("LightSpaceMat", shadowmap.light_space_mat);
+			//gbuffer pos
+			GLCall(glActiveTexture(GL_TEXTURE0));
+			dLightProgram.setInt("gposition", 0);
+			glBindTexture(GL_TEXTURE_2D, gbuffer.pos);
+			//gbuffer normal
+			GLCall(glActiveTexture(GL_TEXTURE1));
+			dLightProgram.setInt("gnormal", 1);
+			glBindTexture(GL_TEXTURE_2D, gbuffer.normal);
+			//gbuffer albedo + spec
+			GLCall(glActiveTexture(GL_TEXTURE2));
+			dLightProgram.setInt("galbedo", 2);
+			glBindTexture(GL_TEXTURE_2D, gbuffer.albedo);
+			//shadow map
+			GLCall(glActiveTexture(GL_TEXTURE3));			
+			dLightProgram.setInt("shadow_map", 3);
+			glBindTexture(GL_TEXTURE_2D, depthBuffer.depth_map);
+			screen_quad.renderQuad();
+
+			//indirect vpl light pass
+			
+			//glEnable(GL_BLEND);
+			//glBlendEquation(GL_FUNC_ADD);
+			//glBlendFunc(GL_ONE, GL_ONE);
+
+			//dummy_rendering(gbuffer, dummy_program, screen_quad);
+			//glBindFramebuffer(GL_READ_FRAMEBUFFER, gbuffer.fbo);
+			//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+			//glBlitFramebuffer(0, 0, Wid, Hei, 0, 0, Wid, Hei, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+			//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+					
+			//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+				
+			//draw_spheres(rsm_buffer, sponza, sphere, sphere_shader, sphereVAO, sphere_mid);			
+
 		}
 
 		else		
