@@ -390,7 +390,7 @@ int main(int argc, char **argv) {
 		glDepthMask(GL_TRUE);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);		
 			
-		//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 		glEnable(GL_DEPTH_TEST);
 		glDisable(GL_BLEND);
@@ -435,19 +435,19 @@ int main(int argc, char **argv) {
 
 			//indirect vpl light pass
 			
-			//glEnable(GL_BLEND);
-			//glBlendEquation(GL_FUNC_ADD);
-			//glBlendFunc(GL_ONE, GL_ONE);
+			// glEnable(GL_BLEND);
+			// glBlendEquation(GL_FUNC_ADD);
+			// glBlendFunc(GL_ONE, GL_ONE);
 
-			//dummy_rendering(gbuffer, dummy_program, screen_quad);
-			//glBindFramebuffer(GL_READ_FRAMEBUFFER, gbuffer.fbo);
-			//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-			//glBlitFramebuffer(0, 0, Wid, Hei, 0, 0, Wid, Hei, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-			//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			// dummy_rendering(gbuffer, dummy_program, screen_quad);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, gbuffer.fbo);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+			glBlitFramebuffer(0, 0, Wid, Hei, 0, 0, Wid, Hei, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 					
-			//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 				
-			//draw_spheres(rsm_buffer, sponza, sphere, sphere_shader, sphereVAO, sphere_mid);			
+			draw_spheres(rsm_buffer, sponza, sphere, sphere_shader, sphereVAO, sphere_mid);			
 
 		}
 

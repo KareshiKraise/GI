@@ -1,7 +1,7 @@
 #pragma once
 
 #include <GL/glew.h>
-#include <GLM/glm.hpp>
+#include <glm/glm.hpp>
 
 class uniform_buffer {
 public:
