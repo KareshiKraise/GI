@@ -13,23 +13,11 @@ uniform mat4 M;
 uniform mat4 V;
 uniform mat4 P;
 
-out struct Light {
-	vec3 lpos;
-	vec3 lnormal;
-	vec3 lflux;
-} sphere;
-
-
-
 const float scale_factor = 15.0f;
 
-void main() {	
+void main() {
 
 	vec4 p = M * vec4(Pos, 1.0) * scale_factor;
-	vec4 worldPos = vec4(p.xyz + texture2D(rsmposition, offset).xyz, 1.0 );
-	sphere.lpos = worldPos.xyz ;
-	sphere.lnormal = texture2D(rsmnormal, offset).xyz;
-	sphere.lflux = texture2D(rsmflux, offset).xyz;
-	
-	gl_Position = P * V * worldPos;	
+	vec4 worldPos = vec4(p.xyz + texture2D(rsmposition, offset).xyz, 1.0);
+	gl_Position = P * V * worldPos;
 }

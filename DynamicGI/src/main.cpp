@@ -26,7 +26,7 @@
 //GLOBAL CONSTANTS
 const float PI = 3.1415926f;
 const float PI_TWO = 6.2831853;
-const int VPL_SAMPLES = 16 * 16;
+const int VPL_SAMPLES = 8 * 8;
 
 //scene and model paths
 const char* sponza_path = "models/sponza/sponza.obj";
@@ -200,47 +200,83 @@ std::vector<glm::vec2> gen_uniform_samples(unsigned int s ) {
 }
 
 /*DUMMY GBUFFER RENDERING PASS*/
-//Receives a framebuffer, a shader program and a quad
-void dummy_rendering(framebuffer& buffer, Shader& s, quad& q) {
-	
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
-	s.use();
-	GLCall(glActiveTexture(GL_TEXTURE0));
-	s.setInt("gposition",0);
-	glBindTexture(GL_TEXTURE_2D, buffer.pos);
-
-	GLCall(glActiveTexture(GL_TEXTURE1));
-	s.setInt("gnormal", 1);
-	glBindTexture(GL_TEXTURE_2D, buffer.normal);
-
-	GLCall(glActiveTexture(GL_TEXTURE2));
-	s.setInt("galbedo", 2 );
-	glBindTexture(GL_TEXTURE_2D, buffer.albedo);
-
-	q.renderQuad();
-}
-
-//Draw instanced spheres
-void draw_spheres(framebuffer& buffer, scene& sphere_scene, Model& sphere, Shader& sphereShader, GLuint sphereVAO, glm::vec3 mid) {
+void draw_stenciled_spheres(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sphere_scene, Model& sphere, Shader& sphereShader, GLuint sphereVAO, glm::vec3 mid, glm::vec2 coord) {
 	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	sphereShader.use();
 
 	glActiveTexture(GL_TEXTURE0);
 	sphereShader.setInt("rsmposition", 0);
-	glBindTexture(GL_TEXTURE_2D, buffer.pos);
+	glBindTexture(GL_TEXTURE_2D, rsm_buffer.pos);
 
 	glActiveTexture(GL_TEXTURE1);
 	sphereShader.setInt("rsmnormal", 1);
-	glBindTexture(GL_TEXTURE_2D, buffer.normal);
+	glBindTexture(GL_TEXTURE_2D, rsm_buffer.normal);
 
 	glActiveTexture(GL_TEXTURE2);
 	sphereShader.setInt("rsmflux", 2);
-	glBindTexture(GL_TEXTURE_2D, buffer.albedo);
+	glBindTexture(GL_TEXTURE_2D, rsm_buffer.albedo);
+
+	glActiveTexture(GL_TEXTURE3);
+	sphereShader.setInt("gposition", 3);
+	glBindTexture(GL_TEXTURE_2D, gbuffer.pos);
+
+	glActiveTexture(GL_TEXTURE4);
+	sphereShader.setInt("gnormal", 4);
+	glBindTexture(GL_TEXTURE_2D, gbuffer.normal);
+
+	glActiveTexture(GL_TEXTURE5);
+	sphereShader.setInt("galbedo", 5);
+	glBindTexture(GL_TEXTURE_2D, gbuffer.albedo);
 
 	sphereShader.setMat4("P", sphere_scene.proj);
 	sphereShader.setMat4("V", sphere_scene.view);
+
+	sphereShader.setVec2("Coords", coord);
+
+	glm::mat4 mod = glm::scale(glm::mat4(1.0), glm::vec3(1.0, 1.0, 1.0));
+	glm::translate(mod, -mid);
+
+	sphereShader.setMat4("M", mod);
+
+	GLCall(glBindVertexArray(sphereVAO));
+	GLCall(glDrawElementsInstanced(GL_TRIANGLES, sphere.get_indices().size(), GL_UNSIGNED_INT, 0, VPL_SAMPLES));
+}
+
+//Draw instanced spheres
+void draw_spheres(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sphere_scene, Model& sphere, Shader& sphereShader, GLuint sphereVAO, glm::vec3 mid, glm::vec2 coord) {
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	sphereShader.use();
+
+	glActiveTexture(GL_TEXTURE0);
+	sphereShader.setInt("rsmposition", 0);
+	glBindTexture(GL_TEXTURE_2D, rsm_buffer.pos);
+
+	glActiveTexture(GL_TEXTURE1);
+	sphereShader.setInt("rsmnormal", 1);
+	glBindTexture(GL_TEXTURE_2D, rsm_buffer.normal);
+
+	glActiveTexture(GL_TEXTURE2);
+	sphereShader.setInt("rsmflux", 2);
+	glBindTexture(GL_TEXTURE_2D, rsm_buffer.albedo);
+
+	glActiveTexture(GL_TEXTURE3);
+	sphereShader.setInt("gposition", 3);
+	glBindTexture(GL_TEXTURE_2D, gbuffer.pos);
+
+	glActiveTexture(GL_TEXTURE4);
+	sphereShader.setInt("gnormal", 4);
+	glBindTexture(GL_TEXTURE_2D, gbuffer.normal);
+
+	glActiveTexture(GL_TEXTURE5);
+	sphereShader.setInt("galbedo", 5);
+	glBindTexture(GL_TEXTURE_2D, gbuffer.albedo);
+
+	sphereShader.setMat4("P", sphere_scene.proj);
+	sphereShader.setMat4("V", sphere_scene.view);
+
+	sphereShader.setVec2("Coords", coord);
 
 	glm::mat4 mod = glm::scale(glm::mat4(1.0), glm::vec3(1.0, 1.0, 1.0));
 	glm::translate(mod, -mid);
@@ -260,6 +296,9 @@ int main(int argc, char **argv) {
 	//TODO:
 	//1 - SAMPLE RSM
 	//2 - DRAW INSTANCED SPHERES
+	//3 - RENDER INDIRECT LIGHTING (DACHSBACHER2006)
+	//4 - RENDER CUBEMAP
+	//5 - REFLECT VPLS
 		
 	/*-----parameters----*/
 	float Wid = 1240.0f;
@@ -291,7 +330,7 @@ int main(int argc, char **argv) {
 	/*------- LOAD SPHERICAL MESH---------*/
 	mesh_loader m(sphere_path);
 	Model sphere = m.get_mesh();
-	Shader sphere_shader("shaders/spheres_vert.glsl", "shaders/spheres_frag.glsl");
+	Shader sphere_shader("shaders/spheres_vert.glsl", "shaders/spheres_debug.glsl");
 	glm::vec3 sphere_mid = m.bb_mid;
 	std::cout << "center of sphere is " << sphere_mid.x << " " << sphere_mid.y << " " << sphere_mid.z  << std::endl;
 
@@ -337,10 +376,11 @@ int main(int argc, char **argv) {
 	/*----OPENGL Enable/Disable functions----*/
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
-	glClearColor(0.5, 0.8, 0.9, 1.0); 	
+	//glClearColor(0.5, 0.8, 0.9, 1.0); 	
+	glClearColor(0.0, 0.0, 0.0, 1.0); 
 
 	/* ---------------- G-BUFFER ----------------*/
-	framebuffer gbuffer(fbo_type::G_BUFFER, w.Wid, w.Hei, 0);
+	framebuffer gbuffer(fbo_type::G_BUFFER_V2, w.Wid, w.Hei, 0);
 	Shader geometry_pass ("shaders/deferred_render_vert.glsl", "shaders/deferred_render_frag.glsl");
 	
 	/* -------------- RSM BUFFER ----------------*/		
@@ -364,8 +404,9 @@ int main(int argc, char **argv) {
 	Shader blur_program("shaders/screen_quad_vert.glsl", "shaders/blur_pass_frag.glsl");
 	framebuffer blur(fbo_type::COLOR_BUFFER, Wid, Hei, 0);
 
-	/*-----DUMMY RENDERING-PROGRAM-----*/
-	Shader dummy_program("shaders/screen_quad_vert.glsl", "shaders/dummy_rendering_frag.glsl");
+	/*-----STENCIL RENDERING-PROGRAM-----*/
+	Shader stencil_pass("shaders/mvp_pass_vert.glsl", "shaders/dummy_rendering_frag.glsl");
+	
 	shadowmap.model = sponza.model;
 
 	/*--- SPHERE VBO CREATION ---*/
@@ -384,22 +425,20 @@ int main(int argc, char **argv) {
 	Shader dLightProgram("shaders/screen_quad_vert.glsl", "shaders/gbuffer_shade_frag.glsl");
 	//main loop
 	while (!w.should_close()) {			
+				
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);				
+				
+		//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-		
-		
 		glDepthMask(GL_TRUE);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);		
-			
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-		glEnable(GL_DEPTH_TEST);
-		glDisable(GL_BLEND);
+		glEnable(GL_DEPTH_TEST);		
+				
 		/*---- SHADOW MAP PASS ----*/
 		shadow_pass(shadowmap, depthBuffer, *sponza.mesh);
 		/*------- LIGHT SPACE MATRIX -------*/
-		shadowmap.light_space_mat = shadowmap.proj * shadowmap.view;		
-		/*---------RSM_Pass--------*/
-		rsm_pass(RSM_pass, rsm_buffer, shadowmap);	
+		shadowmap.light_space_mat = shadowmap.proj * shadowmap.view;				
+		/*---------RSM_PASS--------*/
+		rsm_pass(RSM_pass, rsm_buffer, shadowmap);					
 		/* -------G BUFFER PASS------*/			
 		gbuffer_pass(gbuffer, geometry_pass, sponza);
 
@@ -408,9 +447,43 @@ int main(int argc, char **argv) {
 
 		/*-----ACTUAL RENDERING-----*/
 		if (!debug_view)
-		{		
+		{			
 			
-			//directional light pass
+			//STENCIL PASS
+			//glEnable(GL_STENCIL_TEST);	
+			//gbuffer.set_stencil_pass();
+			//glEnable(GL_DEPTH_TEST);
+			//glDisable(GL_CULL_FACE);
+			//glClear(GL_STENCIL_BUFFER_BIT);
+			//glStencilFunc(GL_ALWAYS, 0, 0);			
+			//glStencilOpSeparate(GL_BACK, GL_KEEP, GL_INCR_WRAP, GL_KEEP);
+			//glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_DECR_WRAP, GL_KEEP);	
+			//draw_stenciled_spheres(gbuffer, rsm_buffer, sponza, sphere, stencil_pass, sphereVAO, sphere_mid, glm::vec2(Wid, Hei));	
+
+			/*----------------------------------------------------------------------------------*/
+
+			//do sphere light pass here
+			gbuffer.set_intermediate_pass();
+			glStencilFunc(GL_NOTEQUAL, 0, 0xFF);
+			glDisable(GL_DEPTH_TEST);			
+			glEnable(GL_BLEND);
+			glBlendEquation(GL_FUNC_ADD);
+			glBlendFunc(GL_ONE, GL_ONE);
+			glEnable(GL_CULL_FACE);
+			glCullFace(GL_FRONT);
+			draw_spheres(gbuffer, rsm_buffer, sponza, sphere, sphere_shader, sphereVAO, sphere_mid, glm::vec2(Wid, Hei));
+			glCullFace(GL_BACK);
+			glDisable(GL_BLEND);
+			glDisable(GL_STENCIL_TEST);										
+						
+			/*------------------------------------------------------------------------*/
+			//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			//Directional light shading pass
+			gbuffer.set_intermediate_pass();
+			glDisable(GL_DEPTH_TEST);
+			glEnable(GL_BLEND);
+			glBlendEquation(GL_FUNC_ADD);
+			glBlendFunc(GL_ONE, GL_ONE);
 			dLightProgram.use();
 			dLightProgram.setVec3("lightDir", shadowmap.lightDir);
 			dLightProgram.setVec3("eyePos", sponza.camera->Position);
@@ -428,35 +501,33 @@ int main(int argc, char **argv) {
 			dLightProgram.setInt("galbedo", 2);
 			glBindTexture(GL_TEXTURE_2D, gbuffer.albedo);
 			//shadow map
-			GLCall(glActiveTexture(GL_TEXTURE3));			
+			GLCall(glActiveTexture(GL_TEXTURE3));
 			dLightProgram.setInt("shadow_map", 3);
 			glBindTexture(GL_TEXTURE_2D, depthBuffer.depth_map);
 			screen_quad.renderQuad();
+			glDisable(GL_BLEND);
 
-			//indirect vpl light pass
 			
-			// glEnable(GL_BLEND);
-			// glBlendEquation(GL_FUNC_ADD);
-			// glBlendFunc(GL_ONE, GL_ONE);
-
-			// dummy_rendering(gbuffer, dummy_program, screen_quad);
+			/*-------------------------------------------------------------------------*/
+						
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, gbuffer.fbo);
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-			glBlitFramebuffer(0, 0, Wid, Hei, 0, 0, Wid, Hei, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+			//intermediate buffer
+			glReadBuffer(GL_COLOR_ATTACHMENT4);
+			glBlitFramebuffer(0, 0, Wid, Hei, 0, 0, Wid, Hei, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-					
-			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-				
-			draw_spheres(rsm_buffer, sponza, sphere, sphere_shader, sphereVAO, sphere_mid);			
+						
+			
 
+			
 		}
-
 		else		
 		{
 			/* ---- DEBUG VIEW ---- */
 			render_debug_view(w, depthView, screen_quad, shadowmap, depthBuffer);			
 		}
 		
+		//delta time and gui frametime renderer;
 		{
 			tf = glfwGetTime();
 			delta_t = (tf - t0) * 1000.0;
@@ -640,6 +711,9 @@ void gbuffer_pass(framebuffer& gbuffer, Shader& gbuf_program, scene& s) {
 
 	glViewport(0, 0, gbuffer.w_res, gbuffer.h_res);
 	gbuffer.bind();
+	gbuffer.set_intermediate_pass();
+	glClear(GL_COLOR_BUFFER_BIT);
+	gbuffer.set_geometry_pass();
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	s.view = s.camera->GetViewMatrix();
 	gbuf_program.use();
@@ -647,7 +721,7 @@ void gbuffer_pass(framebuffer& gbuffer, Shader& gbuf_program, scene& s) {
 	gbuf_program.setMat4("V", s.view);
 	gbuf_program.setMat4("P", s.proj);
 	s.mesh->Draw(gbuf_program);
-	gbuffer.unbind();
+	//gbuffer.unbind();
 }
 
 void deep_g_buffer_pass(Shader& dgb_program, framebuffer& dgbuffer, scene& s, float delta) {
