@@ -35,7 +35,7 @@ void main() {
 
 	float diff = max(0, dot(normalize(pnormal), normalize(sphere.lpos - ppos)));
 
-	vec3 c = pcolor * sphere.lflux * diff * (1 / 15.0);
+	vec3 c = pcolor * sphere.lflux * diff * (1.0 / 19.0) ;
 
 	col = vec4(c, 1.0);
 	

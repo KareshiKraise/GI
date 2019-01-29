@@ -34,21 +34,25 @@ public:
 		vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 		fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 		gShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+		cShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 		try
 		{
-			// open files
-			vShaderFile.open(vertexPath);
-			fShaderFile.open(fragmentPath);
-			std::stringstream vShaderStream, fShaderStream;
-			// read file's buffer contents into streams
-			vShaderStream << vShaderFile.rdbuf();
-			fShaderStream << fShaderFile.rdbuf();
-			// close file handlers
-			vShaderFile.close();
-			fShaderFile.close();
-			// convert stream into string
-			vertexCode = vShaderStream.str();
-			fragmentCode = fShaderStream.str();
+			
+			if (vertexPath != nullptr && fragmentPath != nullptr)
+			{// open files
+				vShaderFile.open(vertexPath);
+				fShaderFile.open(fragmentPath);
+				std::stringstream vShaderStream, fShaderStream;
+				// read file's buffer contents into streams
+				vShaderStream << vShaderFile.rdbuf();
+				fShaderStream << fShaderFile.rdbuf();
+				// close file handlers
+				vShaderFile.close();
+				fShaderFile.close();
+				// convert stream into string
+				vertexCode = vShaderStream.str();
+				fragmentCode = fShaderStream.str();
+			}
 			// if geometry shader path is present, also load a geometry shader
 			if (geometryPath != nullptr)
 			{
@@ -58,60 +62,105 @@ public:
 				gShaderFile.close();
 				geometryCode = gShaderStream.str();
 			}
+			// if compute shader path is present, also load a geometry shader
+			if (computePath != nullptr) {
+				cShaderFile.open(computePath);
+				std::stringstream cShaderStream;
+				cShaderStream << cShaderFile.rdbuf();
+				cShaderFile.close();
+				computeCode = cShaderStream.str();
+			}
 		}
 		catch (std::ifstream::failure e)
 		{
 			std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ" << std::endl;
 			std::cout << e.what() << std::endl;
 		}
-		const char* vShaderCode = vertexCode.c_str();
-		const char * fShaderCode = fragmentCode.c_str();
-		// 2. compile shaders
-		unsigned int vertex, fragment;
-		int success;
-		char infoLog[512];
-		// vertex shader
-		vertex = glCreateShader(GL_VERTEX_SHADER);
-		GLCall(glShaderSource(vertex, 1, &vShaderCode, NULL));
-		GLCall(glCompileShader(vertex));
-		checkCompileErrors(vertex, "VERTEX");
-		// fragment Shader
-		fragment = glCreateShader(GL_FRAGMENT_SHADER);
-		GLCall(glShaderSource(fragment, 1, &fShaderCode, NULL));
-		GLCall(glCompileShader(fragment));
-		checkCompileErrors(fragment, "FRAGMENT");
+
+		unsigned int vertex_s, fragment_s;
+		if (vertexPath != nullptr && fragmentPath != nullptr)
+		{
+			const char* vShaderCode = vertexCode.c_str();
+			const char * fShaderCode = fragmentCode.c_str();
+			//const char * gShaderCode = geometryCode.c_str();
+			//const char * cShaderCode = computeCode.c_str();
+			// 2. compile shaders			
+			int success;
+			char infoLog[512];
+			// vertex shader
+			vertex_s = glCreateShader(GL_VERTEX_SHADER);
+			GLCall(glShaderSource(vertex_s, 1, &vShaderCode, NULL));
+			GLCall(glCompileShader(vertex_s));
+			checkCompileErrors(vertex_s, "VERTEX");
+			// fragment Shader
+			fragment_s = glCreateShader(GL_FRAGMENT_SHADER);
+			GLCall(glShaderSource(fragment_s, 1, &fShaderCode, NULL));
+			GLCall(glCompileShader(fragment_s));
+			checkCompileErrors(fragment_s, "FRAGMENT");
+		}
 		// if geometry shader is given, compile geometry shader
-		unsigned int geometry;
+		unsigned int geometry_s;
 		if (geometryPath != nullptr)
 		{
 			const char * gShaderCode = geometryCode.c_str();
-			geometry = glCreateShader(GL_GEOMETRY_SHADER);
-			GLCall(glShaderSource(geometry, 1, &gShaderCode, NULL));
-			GLCall(glCompileShader(geometry));
-			checkCompileErrors(geometry, "GEOMETRY");
+			geometry_s = glCreateShader(GL_GEOMETRY_SHADER);
+			GLCall(glShaderSource(geometry_s, 1, &gShaderCode, NULL));
+			GLCall(glCompileShader(geometry_s));
+			checkCompileErrors(geometry_s, "GEOMETRY");
 		}
+		unsigned int compute_s;
+		if (computePath != nullptr)
+		{
+			const char * cShaderCode = computeCode.c_str();
+			compute_s = glCreateShader(GL_COMPUTE_SHADER);
+			GLCall(glShaderSource(compute_s, 1, &cShaderCode, NULL));
+			GLCall(glCompileShader(compute_s));
+			checkCompileErrors(compute_s, "COMPUTE");
+		}
+
 		// shader Program
 		ID = glCreateProgram();
-		GLCall(glAttachShader(ID, vertex));
-		GLCall(glAttachShader(ID, fragment));
+
+		if (vertexPath != nullptr && fragmentPath != nullptr)
+		{
+			GLCall(glAttachShader(ID, vertex_s));
+			GLCall(glAttachShader(ID, fragment_s));
+		}
 
 		if (geometryPath != nullptr)
 		{
 			std::cout << "has geometry shader will attach" << std::endl;
-			glAttachShader(ID, geometry);
+			glAttachShader(ID, geometry_s);
+		}
+
+		if (computePath != nullptr)
+		{
+			std::cout << "has compute shader will attach" << std::endl;
+			glAttachShader(ID, compute_s);
 		}
 
 		GLCall(glLinkProgram(ID));
 		checkCompileErrors(ID, "PROGRAM");
-		// delete the shaders as they're linked into our program now and no longer necessery
-		GLCall(glDeleteShader(vertex));
-		GLCall(glDeleteShader(fragment));
+
+		// delete the shaders as they're linked into our program now and no longer necessary
+
+		if (vertexPath != nullptr && fragmentPath != nullptr)
+		{
+			GLCall(glDeleteShader(vertex_s));
+			GLCall(glDeleteShader(fragment_s));
+		}
 
 		if (geometryPath != nullptr)
 		{
-			//std::cout << " has geometry shader will delete" << std::endl;
-			glDeleteShader(geometry);
+			std::cout << " has geometry shader will delete" << std::endl;
+			glDeleteShader(geometry_s);
 		}
+		if (computePath != nullptr)
+		{
+			std::cout << " has compute shader will delete" << std::endl;
+			glDeleteShader(compute_s);
+		}
+
 
 	}
 	// activate the shader

@@ -22,6 +22,8 @@
 #include "third_party/imgui_impl_glfw.h"
 #include "third_party/imgui_impl_opengl3.h"
 
+#include "techniques.h"
+
 
 //GLOBAL CONSTANTS
 const float PI = 3.1415926f;
@@ -48,43 +50,36 @@ static int minDiscrepancyArray[100] = {
 	31, 31, 23, 18, 25, 26, 25, 23, 19, 34,  // 8
 	19, 27, 21, 25, 39, 29, 17, 21, 27, 29 }; // 9
 
+/*
 struct scene {
 	mesh_loader *mesh;
 	Shader *shader;
-	Camera *camera;
-	/*---pos---*/
-	glm::vec3 bb_mid;
-	/*---matrices---*/
+	Camera *camera;	
+	glm::vec3 bb_mid;	
 	glm::mat4 view;
 	glm::mat4 proj;
 	glm::mat4 model;	
 	float n_val;
 	float f_val;
 };
+*/
 
+/*
 struct shadow_data {	
 	glm::mat4 proj;
 	glm::mat4 view;
 	glm::mat4 model;
 	glm::mat4 light_space_mat;
 	Shader *shader;
-	/*---resolution---*/
 	float s_w;
 	float s_h;
 	float s_near;
-	float s_far;
-	/*---Light Information---*/
+	float s_far;	
 	glm::vec3 lightDir;
 	glm::vec3 lightColor;
 	glm::vec3 lightPos;
 };
-
-struct point_light {
-	
-	glm::vec4 p; //position
-	glm::vec4 n; //normal
-	glm::vec4 c;//color
-};
+*/
 
 scene sponza;
 shadow_data shadowmap;
@@ -199,7 +194,6 @@ std::vector<glm::vec2> gen_uniform_samples(unsigned int s ) {
 	return samples;
 }
 
-/*DUMMY GBUFFER RENDERING PASS*/
 void draw_stenciled_spheres(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sphere_scene, Model& sphere, Shader& sphereShader, GLuint sphereVAO, glm::vec3 mid, glm::vec2 coord) {
 	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -289,14 +283,14 @@ void draw_spheres(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sphere_s
 	GLCall(glDrawElementsInstanced(GL_TRIANGLES, sphere.get_indices().size(), GL_UNSIGNED_INT, 0, VPL_SAMPLES));
 }
 
-void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO, GLuint& instanceVBO, Model& sphere);
+void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO, GLuint& instanceVBO, Model& sphere, std::vector<glm::vec2>& samples);
 
 int main(int argc, char **argv) {	
 
 	//TODO:
 	//1 - SAMPLE RSM
 	//2 - DRAW INSTANCED SPHERES
-	//3 - RENDER INDIRECT LIGHTING (DACHSBACHER2006)
+	//3 - RENDER INDIRECT LIGHTING (DACHSBACHER2006) or Tiled Shading
 	//4 - RENDER CUBEMAP
 	//5 - REFLECT VPLS
 		
@@ -407,6 +401,17 @@ int main(int argc, char **argv) {
 	/*-----STENCIL RENDERING-PROGRAM-----*/
 	Shader stencil_pass("shaders/mvp_pass_vert.glsl", "shaders/dummy_rendering_frag.glsl");
 	
+	/*----FILL SSBO WITH LIGHTS ----*/
+	GLuint lightSSBO;
+	bool is_filled = false;
+	GLCall(glGenBuffers(1, &lightSSBO));
+	GLCall(glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightSSBO));
+	GLCall(glBufferData(GL_SHADER_STORAGE_BUFFER, VPL_SAMPLES * sizeof(struct point_light) , NULL , GL_DYNAMIC_COPY));
+		
+	Shader gen_light_buffer(nullptr, nullptr, nullptr, "shaders/gen_light_ssbo.glsl");
+	
+	//Shader tiled_shading(nullptr, nullptr, nullptr, "shaders/compute_nothing.glsl");
+	
 	shadowmap.model = sponza.model;
 
 	/*--- SPHERE VBO CREATION ---*/
@@ -414,13 +419,24 @@ int main(int argc, char **argv) {
 	GLuint sphereVBO;
 	GLuint sphereIBO;
 	GLuint instanceVBO;
-	create_sphere_vao(sphereVAO, sphereVBO, sphereIBO, instanceVBO ,sphere);
+	GLuint samplesBuffer;
+	GLuint samplesTBO;
+
+	std::vector<glm::vec2> samples = gen_uniform_samples(VPL_SAMPLES);
+	create_sphere_vao(sphereVAO, sphereVBO, sphereIBO, instanceVBO ,sphere, samples);
+
+	GLCall(glGenBuffers(1, &samplesBuffer));
+	GLCall(glBindBuffer(GL_TEXTURE_BUFFER, samplesBuffer));
+	GLCall(glBufferData(GL_TEXTURE_BUFFER, sizeof(glm::vec2)*samples.size(), samples.data(), GL_STATIC_READ));
+
+	GLCall(glGenTextures(1, &samplesTBO));
+	GLCall(glBindTexture(GL_TEXTURE_BUFFER, samplesTBO));
+	GLCall(glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, samplesBuffer));
+	/*------------------------------------------------------*/
 	
 	double t0, tf, delta_t;
 	t0 = tf = delta_t = 0;
 	t0 = glfwGetTime();
-
-
 
 	Shader dLightProgram("shaders/screen_quad_vert.glsl", "shaders/gbuffer_shade_frag.glsl");
 	//main loop
@@ -449,6 +465,30 @@ int main(int argc, char **argv) {
 		if (!debug_view)
 		{			
 			
+			//COMPUTE LIGHT BUFFER STEP
+			if (!is_filled) 
+			{
+				std::cout << "ssbo is empty, will generate vpl buffer" << std::endl;
+				gen_light_buffer.use();
+
+				GLCall(glActiveTexture(GL_TEXTURE0));
+				GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.pos));
+				gen_light_buffer.setInt("rsm_position", 0);				
+				
+				GLCall(glActiveTexture(GL_TEXTURE1));
+				GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.albedo));
+				gen_light_buffer.setInt("rsm_flux", 1);
+				
+				GLCall(glBindImageTexture(0, samplesTBO, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG32F));
+				GLCall(glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, lightSSBO));
+
+				GLCall(glDispatchCompute(VPL_SAMPLES, 1 ,1));
+				GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+				is_filled = true;
+			}
+
+			//BEGIN LIGHT PASS
+		
 			//STENCIL PASS
 			//glEnable(GL_STENCIL_TEST);	
 			//gbuffer.set_stencil_pass();
@@ -462,6 +502,7 @@ int main(int argc, char **argv) {
 
 			/*----------------------------------------------------------------------------------*/
 
+			//void do_instanced_sphere_pass();
 			//do sphere light pass here
 			gbuffer.set_intermediate_pass();
 			glStencilFunc(GL_NOTEQUAL, 0, 0xFF);
@@ -795,7 +836,7 @@ void blur_pass(quad& screen,unsigned int source_id, Shader& blur_program, frameb
 	blur_buffer.unbind();
 }
 
-void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO, GLuint& instanceVBO , Model& sphere) {
+void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO, GLuint& instanceVBO , Model& sphere, std::vector<glm::vec2>& samples) {
 	GLCall(glGenVertexArrays(1, &sphereVAO));
 	GLCall(glGenBuffers(1, &sphereVBO));
 	GLCall(glGenBuffers(1, &sphereIBO));
@@ -820,10 +861,10 @@ void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO, 
 	GLCall(glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, normal)));
 	GLCall(glBindVertexArray(0));
 	
-	std::vector<glm::vec2> samples = gen_uniform_samples(VPL_SAMPLES);
-	if (samples.size() > 0) {
-		std::cout << "generated " << samples.size() << " samples succesfully" << std::endl; 
-	}
+	//std::vector<glm::vec2> samples = gen_uniform_samples(VPL_SAMPLES);
+	//if (samples.size() > 0) {
+	//	std::cout << "generated " << samples.size() << " samples succesfully" << std::endl; 
+	//}
 		
 	GLCall(glGenBuffers(1, &instanceVBO));
 	GLCall(glBindBuffer(GL_ARRAY_BUFFER, instanceVBO));
