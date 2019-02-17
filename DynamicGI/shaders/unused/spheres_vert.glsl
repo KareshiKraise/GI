@@ -19,15 +19,15 @@ out struct Light {
 	vec3 lflux;
 } sphere;
 
-
-
-const float scale_factor = 15.0f;
+const float scale_factor = 30.0f;
 
 void main() {	
 
+	vec4 vpl_pos = texture2D(rsmposition, offset);
 	vec4 p = M * vec4(Pos, 1.0) * scale_factor;
-	vec4 worldPos = vec4(p.xyz + texture2D(rsmposition, offset).xyz, 1.0 );
-	sphere.lpos = worldPos.xyz ;
+	vec4 worldPos = vec4(p.xyz + vpl_pos.xyz, 1.0 );
+	sphere.lpos = vpl_pos.xyz;
+	//sphere.lpos = worldPos.xyz ;
 	sphere.lnormal = texture2D(rsmnormal, offset).xyz;
 	sphere.lflux = texture2D(rsmflux, offset).xyz;
 	

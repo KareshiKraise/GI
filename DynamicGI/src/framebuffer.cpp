@@ -42,7 +42,6 @@ framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 
 		if(gen_rsm())
 			std::cout << " rsm fbo complete" << std::endl;
 	}
-
 	else if (type == fbo_type::RADIOSITY_PARAM) {
 		fb_type = type;
 		w_res = w;
@@ -51,7 +50,6 @@ framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 
 		if (gen_radiosity())
 			std::cout << " radiosity fbo complete" << std::endl;
 	}
-
 	else if (type == fbo_type::COLOR_BUFFER) {
 		fb_type = type;
 		w_res = w;
@@ -66,7 +64,15 @@ framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 
 		h_res = h;
 		layers = l;
 		if (gen_g_buffer_v2())
-			std::cout << " gbuffer v2 fbo complete" << std::endl;
+			std::cout << " gbuffer v2 fbo complete " << std::endl;
+	}
+	else if (type == fbo_type::CUBE_MAP){
+		fb_type = type;
+		w_res = w;
+		h_res = h;
+		layers = l;
+		if (gen_cube_map())
+			std::cout << "cube map fbo complete" << std::endl;
 	}
 }
 
@@ -76,7 +82,7 @@ void framebuffer::bind() {
 	}
 }
 
-//actually unbinds the drawbuffer sets to GL_NONE
+//actually unbinds the drawbuffer sets to GL_NONE for gbuffer v2
 void framebuffer::set_stencil_pass() {
 	if (fbo)
 	{
@@ -85,7 +91,7 @@ void framebuffer::set_stencil_pass() {
 	}
 }
 
-//sets drawbuffer as the intermediate texture , collor attachment 4 
+//sets drawbuffer as the intermediate texture , collor attachment 4 meant for gbuffer v2
 void framebuffer::set_intermediate_pass() {	
 	if (fbo) {
 		GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT4));
@@ -93,7 +99,7 @@ void framebuffer::set_intermediate_pass() {
 	}
 }
 
-//sets drawbuffer as the gbuffer textures , collor attachments 1,2 and 3
+//sets drawbuffer as the gbuffer textures , collor attachments 1,2 and 3 for gbuffer v2
 void framebuffer::set_geometry_pass() {
 	if (fbo) {
 		unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
@@ -101,7 +107,6 @@ void framebuffer::set_geometry_pass() {
 		has_drawbuffer = true;		
 	}
 }
-
 
 void framebuffer::unbind() {
 	if (fbo) {
@@ -140,6 +145,88 @@ bool framebuffer::gen_shadow_map_fb() {
 	return true;
 }
 
+bool framebuffer::gen_cube_map()
+{
+	bind();
+
+	GLCall(glGenTextures(1, &pos));
+	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, pos));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+
+	for (GLuint i = 0; i < 6; ++i)
+	{
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA32F, w_res,h_res, 0, GL_RGBA, GL_FLOAT, NULL);
+	}	
+
+	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, pos, 0));
+
+	GLCall(glGenTextures(1, &normal));
+	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, normal));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+
+	for (GLuint i = 0; i < 6; ++i)
+	{
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, w_res, h_res, 0, GL_RGB, GL_FLOAT, NULL);
+	}
+
+	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, normal, 0));
+
+
+	GLCall(glGenTextures(1, &albedo));
+	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, albedo));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+
+	for (GLuint i = 0; i < 6; ++i)
+	{
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, w_res, h_res, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	}
+
+	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, albedo, 0));
+
+
+
+	GLCall(glGenTextures(1, &depth_map));
+	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, depth_map));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+
+	for (GLuint i = 0; i < 6; ++i)
+	{
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT32, w_res,h_res, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	}
+
+	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_map, 0));
+	
+	unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+	glDrawBuffers(3, attachments);
+
+		
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		std::cout << "cubemap framebuffer incomplete " << std::endl;
+		return false;
+	}
+
+	unbind();
+	return true;
+
+}
+
 bool framebuffer::gen_g_buffer() {
 	bind();
 	
@@ -168,9 +255,9 @@ bool framebuffer::gen_g_buffer() {
 	glDrawBuffers(3, attachments);
 
 	this->has_drawbuffer = true;
-
+	
 	//gen_depth_renderbuffer();
-	gen_depth_renderbuffer();
+	gen_depth_texture();
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		std::cout << "gbuffer framebuffer incomplete" << std::endl;
@@ -212,7 +299,7 @@ bool framebuffer::gen_g_buffer_v2() {
 	//intermediate texture
 	GLCall(glGenTextures(1, &intermediate));
 	GLCall(glBindTexture(GL_TEXTURE_2D, intermediate));
-	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w_res, h_res, 0, GL_RGB, GL_FLOAT, NULL));
+	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w_res, h_res, 0, GL_RGBA, GL_FLOAT, NULL));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
 	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, intermediate, 0));
@@ -234,9 +321,21 @@ bool framebuffer::gen_g_buffer_v2() {
 //renderbuffer
 void framebuffer::gen_depth_renderbuffer() {
 	GLCall(glGenRenderbuffers(1, &depth_map));
-	glBindRenderbuffer(GL_RENDERBUFFER, depth_map);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w_res, h_res);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth_map);	
+	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, depth_map));
+	GLCall(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w_res, h_res));
+	GLCall(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth_map));	
+}
+
+void framebuffer::gen_depth_texture() {
+	GLCall(glGenTextures(1, &depth_map));
+	GLCall(glBindTexture(GL_TEXTURE_2D, depth_map));
+	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, w_res, h_res, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	
+	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_map, 0));
 }
 
 //depth and stencil buffer
@@ -280,9 +379,9 @@ bool framebuffer::gen_rsm() {
 	glDrawBuffers(3, attachments);
 
 	this->has_drawbuffer = true;
-
-	//gen_shadow_map_fb();
-	gen_depth_renderbuffer();
+	
+	//gen_depth_renderbuffer();
+	gen_depth_texture();
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		std::cout << "RSM framebuffer incomplete" << std::endl;

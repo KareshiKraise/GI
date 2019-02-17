@@ -1,5 +1,7 @@
 #version 430
 
+//instanced draw vertex pass, scaling sphere vertices by  a factor of 15
+
 layout(location = 0) in vec3 Pos;
 layout(location = 1) in vec2 Tex;
 layout(location = 2) in vec3 Normal;
@@ -13,7 +15,7 @@ uniform mat4 M;
 uniform mat4 V;
 uniform mat4 P;
 
-const float scale_factor = 15.0f;
+const float scale_factor = 30.0f;
 
 void main() {
 

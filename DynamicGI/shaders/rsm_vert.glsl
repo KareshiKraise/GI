@@ -16,7 +16,8 @@ uniform mat4 M;
 
 void main() {
 	vs_out.pos = vec3(M * vec4(Pos, 1.0));
-	vs_out.normal = transpose(inverse(mat3(M))) * Normal;
+	//vs_out.normal = transpose(inverse(mat3(M))) * Normal;
+	vs_out.normal = Normal;
 	vs_out.tex = Tex;
 	gl_Position = P * V * M * vec4(Pos, 1.0);
 }

@@ -10,7 +10,8 @@ enum class fbo_type {
 	DEEP_G_BUFFER = 0X04,
 	RADIOSITY_PARAM = 0x05,
 	COLOR_BUFFER = 0X06,  //general purpose single render target albedo buffer
-	G_BUFFER_V2 = 0X07
+	G_BUFFER_V2 = 0X07,
+	CUBE_MAP = 0X08
 };
 
 class framebuffer {
@@ -19,8 +20,9 @@ public:
 	unsigned int layers;
 	unsigned int h_res, w_res;
 	unsigned int fbo;
-	unsigned int depth_map, compare_depth;
+	unsigned int depth_map, compare_depth; 
 	unsigned int pos, normal, albedo, intermediate; //obs the albedo variable can also be used as the flux
+	unsigned int cube_tex;
 	fbo_type fb_type;
 
 	framebuffer();	
@@ -40,7 +42,7 @@ public:
 	
 private:
 	 
-
+	bool gen_cube_map();
 	bool gen_radiosity();
 	bool gen_shadow_map_fb(); 
 	bool gen_g_buffer();
@@ -50,5 +52,6 @@ private:
 	bool gen_dgbuffer();
 	bool gen_indirect_buffer();
 	void gen_depth_stencil_renderbuffer();
+	void gen_depth_texture();
 };
 

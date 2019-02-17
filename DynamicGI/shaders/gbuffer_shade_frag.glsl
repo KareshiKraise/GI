@@ -9,6 +9,7 @@ uniform sampler2D shadow_map;
 uniform vec3 lightDir;
 uniform vec3 eyePos;
 uniform mat4 LightSpaceMat;
+uniform mat4 V;
 
 out vec4 frag_color;
 
@@ -28,9 +29,12 @@ float inShadow(vec4 fragPosLS, vec3 norm) {
 }
 
 void main() {
+	
 
 	vec3 fragpos = texture(gposition, tex).xyz;
-	vec3 normal = texture(gnormal, tex).xyz;
+	vec4 frag_in_view = V * vec4(fragpos, 1.0);
+	vec3 normal = normalize(texture(gnormal, tex).xyz);	
+
 	vec3 albedo = texture(galbedo, tex).rgb;
 	float specular = texture(galbedo, tex).a;
 
@@ -40,11 +44,11 @@ void main() {
 	float diff = max(dot(lightDir, normal), 0.0f);
 	vec3 diffuse = diff * lightColor;
 	
-	vec3 eyeDir = normalize(eyePos - fragpos);
+	vec3 eyeDir = normalize(frag_in_view.xyz);
 
 	float spec = 0.0;
 	vec3 half_v = normalize(lightDir + eyeDir);
-	spec = pow(max(dot(normal, half_v), 0.0), 16);
+	spec = pow(max(dot(normal, half_v), 0.0), 32);
 	vec3 glossy = spec * lightColor * vec3(specular);
 
 	vec4 pos_lightspace = LightSpaceMat * vec4(fragpos, 1.0);

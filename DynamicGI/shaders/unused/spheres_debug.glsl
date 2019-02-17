@@ -16,6 +16,7 @@ in struct Light {
 
 uniform vec2 Coords;
 
+uniform mat4 V;
 
 out vec4 col;
 
@@ -29,13 +30,20 @@ void main() {
 	
 	vec2 uv = get_uv_coord();
 	
-	vec3 ppos = texture2D(gposition, uv).xyz;  //point position
+	vec3 ppos = texture2D(gposition, uv).xyz;             //point position
 	vec3 pnormal = normalize(texture2D(gnormal, uv).xyz); //point normal
-	vec3 pcolor = texture2D(galbedo, uv).xyz;  //point color
+	vec3 pcolor = texture2D(galbedo, uv).xyz;             //point color	
+	
+	vec3 pinview = (V * vec4(ppos, 1.0)).xyz;
+	vec3 linview = (V * vec4(sphere.lpos, 1.0)).xyz;
 
-	float diff = max(0, dot(normalize(pnormal), normalize(sphere.lpos - ppos)));
+	vec3 lightDir = normalize(linview - pinview);
 
-	vec3 c = pcolor * sphere.lflux * diff * (1.0 / 19.0) ;
+	float diff = max(0, dot(pnormal, lightDir));
+
+	float len = length(pinview - linview);
+
+	vec3 c = pcolor * sphere.lflux * diff * (1.0f / max(1.0f, len));
 
 	col = vec4(c, 1.0);
 	
