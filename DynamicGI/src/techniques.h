@@ -13,6 +13,8 @@
 #include "framebuffer.h"
 #include "Axis3D.h"
 #include "uniform_buffer.h"
+#include <random>
+#include "shader_storage_buffer.h"
 
 #include "third_party/imgui.h"
 #include "third_party/imgui_impl_glfw.h"
@@ -37,6 +39,15 @@ static int minDiscrepancyArray[100] = {
 	29, 21, 19, 27, 31, 29, 21, 18, 17, 29,  // 7
 	31, 31, 23, 18, 25, 26, 25, 23, 19, 34,  // 8
 	19, 27, 21, 25, 39, 29, 17, 21, 27, 29 }; // 9
+
+//dachsbacher 2005 RSM (unused)
+struct RSM_parameters {
+	std::vector<glm::vec2> pattern;
+	unsigned int SAMPLING_SIZE; // rsm sampling
+	float r_max;// max r for sampling pattern of rsm
+	float rsm_w;
+	float rsm_h;
+};
 
 struct scene {
 	mesh_loader *mesh;
@@ -71,16 +82,40 @@ struct point_light {
 	glm::vec4 c;//color	
 };
 
-void do_SSVP(Shader& SSVP, GLuint lightSSBO, GLuint samplesTBO, const framebuffer& cubemap, glm::vec4 refPos, int NumLights, int MaxLights);
+
+/* --- FUNCTION SIGNATURES ---*/
+
+void rsm_pass(Shader& RSM_pass, framebuffer& rsm, shadow_data& light_data, scene& s);
+
+void gbuffer_pass(framebuffer& gbuffer, Shader& gbuf_program, scene& s);
+
+void deep_g_buffer_pass(Shader& dgb_program, framebuffer& dgbuffer, scene& s, float delta);
+
+void deep_g_buffer_debug(Shader& debug_view, framebuffer& dgb, quad& screen, shadow_data&  light_data, scene& s, framebuffer& depth_buffer);
+
+
+void shadow_pass(shadow_data& data, framebuffer& depth_buffer, mesh_loader& mesh);
+
+std::vector<glm::vec2> gen_uniform_samples(unsigned int s, float min, float max);
+
+void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO, GLuint& instanceVBO, Model& sphere, std::vector<glm::vec2>& samples);
+
+void do_SSVP(Shader& SSVP, shader_storage_buffer& lightSSBO, GLuint samplesTBO, const framebuffer& cubemap, glm::vec4 refPos, int NumLights, int MaxLights);
 
 glm::mat4 axis_from_rotation(float yaw, float pitch, glm::vec3 eye = glm::vec3(0.0));
 
-void fill_lightSSBO(const framebuffer& buffer, const glm::mat4& view, Shader& ssbo_program ,GLuint tbo, GLuint ssbo);
+void fill_lightSSBO(const framebuffer& buffer, const glm::mat4& view, Shader& ssbo_program ,GLuint tbo, shader_storage_buffer& ssbo);
 
 void draw_skybox(Shader& skybox_program, const framebuffer& cube_buf, glm::mat4 view, glm::mat4 proj, Cube& cube);
 
-/*
-void draw_stenciled_spheres(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sphere_scene, Model& sphere, Shader& sphereShader, GLuint sphereVAO, glm::vec3 mid, glm::vec2 coord);
+void generate_rsm_sampling_pattern(std::vector<glm::vec2>& p, RSM_parameters& rsm_param);
 
-void do_stencil_pass(framebuffer& gbuffer, const framebuffer& rsm_buffer, const scene& sponza, const Shader& stencil_pass, const GLuint sphereVAO, const glm::vec3& sphere_mid, const glm::vec2& dims);
-*/
+void blur_pass(quad& screen, unsigned int source_id, Shader& blur_program, framebuffer& blur_buffer);
+
+void draw_spheres(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sphere_scene, Model& sphere, Shader& sphereShader, GLuint sphereVAO, glm::vec3 mid, glm::vec2 coord);
+
+void draw_stenciled_spheres(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sphere_scene, Model& sphere, Shader& sphereShader, GLuint sphereVAO, glm::vec3& mid, glm::vec2& coord);
+
+void do_stencil_pass(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sponza, Shader& stencil_pass, GLuint sphereVAO, glm::vec3& sphere_mid, glm::vec2& dims, Model& sphere);
+
+void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& rsm_buffer, GLuint draw_tex, glm::mat4& invProj, scene& sponza, shadow_data& shadowmap, int MaxVPL, shader_storage_buffer& lightSSBO, float Wid, float Hei);

@@ -7,7 +7,7 @@ int window::init() {
 }
 
 //creates window and makes context current
-void window::create_window(int w, int h) {
+int window::create_window(int w, int h) {
 
 	if (!init()) {
 		std::cout << "failed to initialize glfw" << std::endl;
@@ -26,6 +26,16 @@ void window::create_window(int w, int h) {
 	}
 
 	glfwMakeContextCurrent(this->wnd);
+
+	auto err = glewInit();
+
+	if (err != GLEW_OK) {
+		std::cout << "failed to init glew" << std::endl;
+		return -1;
+	}
+	std::cout << "glew initialized succesfully" << std::endl;
+	return 0;
+
 }
 
 int window::should_close() {
