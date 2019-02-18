@@ -20,7 +20,8 @@ ASSIMP_LDFLAGS 	=	-lassimp
 SOIL_LDFLAGS	= 	-lSOIL
 
 OBJFILES 		=	src/framebuffer.o src/main.o src/mesh_loader.o src/model.o src/window.o \
-					src/techniques.o src/third_party/imgui.o src/third_party/imgui_impl_glfw.o \
+					src/techniques.o src/shader_storage_buffer.o src/uniform_buffer.o \
+					src/third_party/imgui.o src/third_party/imgui_impl_glfw.o \
 					src/third_party/imgui_impl_opengl3.o src/third_party/imgui_draw.o \
 					src/third_party/imgui_widgets.o
 
