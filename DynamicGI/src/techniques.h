@@ -22,7 +22,7 @@
 
 extern const float PI;
 extern const float PI_TWO;
-extern const int VPL_SAMPLES;
+extern int VPL_SAMPLES;
 
 //Number of turns for spiral quasi monte carlo sampling, pre computed by McGuire for max of N = 100 samples 
 //Taken from the G3D DeepGBuffer radiosity samples
@@ -82,17 +82,25 @@ struct point_light {
 	glm::vec4 c;//color	
 };
 
+struct frustum {
+	glm::vec4 planes[4];
+};
 
 /* --- FUNCTION SIGNATURES ---*/
 
+void cluster_vpls(Shader& cluster_program, const framebuffer& rsm_buffer, int num_VALs, int num_VPLs, bool start_frame, uniform_buffer& kvals);
+
+void update_clusters(Shader& update_cluster_program, int num_VALs, int num_VPLs);
+
 void rsm_pass(Shader& RSM_pass, framebuffer& rsm, shadow_data& light_data, scene& s);
 
-void gbuffer_pass(framebuffer& gbuffer, Shader& gbuf_program, scene& s);
+void gbuffer_pass(framebuffer& gbuffer, Shader& gbuf_program, scene& s, glm::mat4& view);
 
 void deep_g_buffer_pass(Shader& dgb_program, framebuffer& dgbuffer, scene& s, float delta);
 
 void deep_g_buffer_debug(Shader& debug_view, framebuffer& dgb, quad& screen, shadow_data&  light_data, scene& s, framebuffer& depth_buffer);
 
+void generate_tile_frustum(Shader& frustum_program, shader_storage_buffer& buffer, float Wid, float Hei, glm::mat4& invProj);
 
 void shadow_pass(shadow_data& data, framebuffer& depth_buffer, mesh_loader& mesh);
 
@@ -100,11 +108,14 @@ std::vector<glm::vec2> gen_uniform_samples(unsigned int s, float min, float max)
 
 void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO, GLuint& instanceVBO, Model& sphere, std::vector<glm::vec2>& samples);
 
-void do_SSVP(Shader& SSVP, shader_storage_buffer& lightSSBO, GLuint samplesTBO, const framebuffer& cubemap, glm::vec4 refPos, int NumLights, int MaxLights);
+void compute_vpl_propagation(Shader& ssvp, const std::vector<glm::mat4>& pView, const framebuffer& gbackbuffer, const std::vector<framebuffer>& paraboloidmaps,
+	GLuint samplesTBO, float near, float far, int NUM_VPLS, int num_VALs);
+
+void do_SSVP(Shader& SSVP, shader_storage_buffer& lightSSBO, GLuint samplesTBO, const framebuffer& cubemap, glm::vec4 refPos, int NumLights, int MaxLights, unsigned int factor);
 
 glm::mat4 axis_from_rotation(float yaw, float pitch, glm::vec3 eye = glm::vec3(0.0));
 
-void fill_lightSSBO(const framebuffer& buffer, const glm::mat4& view, Shader& ssbo_program ,GLuint tbo, shader_storage_buffer& ssbo);
+void fill_lightSSBO(const framebuffer& buffer, const glm::mat4& view, Shader& ssbo_program ,GLuint tbo, shader_storage_buffer& ssbo, int samples);
 
 void draw_skybox(Shader& skybox_program, const framebuffer& cube_buf, glm::mat4 view, glm::mat4 proj, Cube& cube);
 
@@ -118,4 +129,8 @@ void draw_stenciled_spheres(framebuffer& gbuffer, framebuffer& rsm_buffer, scene
 
 void do_stencil_pass(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sponza, Shader& stencil_pass, GLuint sphereVAO, glm::vec3& sphere_mid, glm::vec2& dims, Model& sphere);
 
-void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& rsm_buffer, GLuint draw_tex, glm::mat4& invProj, scene& sponza, shadow_data& shadowmap, int MaxVPL, shader_storage_buffer& lightSSBO, float Wid, float Hei);
+void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& rsm_buffer, GLuint draw_tex, glm::mat4& invProj, scene& sponza, shadow_data& shadowmap, int numVPL, int numVAL ,shader_storage_buffer& lightSSBO, float Wid, float Hei, float near, float far, const std::vector<glm::mat4>& pView, const std::vector<framebuffer>& pfbo);
+
+void do_parabolic_map(const glm::mat4& parabolicModelView, framebuffer& parabolic_sm, Shader& parabolic_map, float ism_w, float ism_h, scene& sponza);
+
+void do_parabolic_rsm(const glm::mat4& parabolicModelView, framebuffer& parabolic_sm, Shader& parabolic_map, float ism_w, float ism_h, scene& sponza);

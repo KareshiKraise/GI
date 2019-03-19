@@ -23,5 +23,5 @@ void main()
 	vs_out.p = M * vec4(Pos, 1.0f);
 	vs_out.n = Normal;
 	vs_out.uv = Tex;
-	gl_Position = M * vec4(Pos, 1.0);
+	//gl_Position = M * vec4(Pos, 1.0);
 }

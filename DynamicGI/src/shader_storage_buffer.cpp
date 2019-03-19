@@ -6,6 +6,7 @@ shader_storage_buffer::shader_storage_buffer(unsigned int siz)
 	GLCall(glGenBuffers(1, &this->ssbo));
 	GLCall(glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ssbo));
 	GLCall(glBufferData(GL_SHADER_STORAGE_BUFFER, size, NULL, GL_DYNAMIC_COPY));
+	unbind();
 }
 
 

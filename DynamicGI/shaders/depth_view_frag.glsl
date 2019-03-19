@@ -11,16 +11,27 @@ uniform float far;
 
 float LinearizeDepth(float depth)
 {
-	float z = depth * 2.0 - 1.0; // Back to NDC 	
+	float z = depth * 2.0 - 1.0; 
 	return (2.0 * near * far) / (far + near - z * (far - near));
 }
 
 
 void main() {
-	float depthVal = LinearizeDepth(texture(screen_tex, tex).r);
-	fragColor = vec4(vec3(depthVal), 1.0f);
-	//fragColor = vec4(1.0, 0.0, 0.0, 1.0);
-	//fragColor = texture(screen_tex, tex);
+	
+	//view texture
+	//fragColor = vec4(texture2D(screen_tex, tex).rgb, 1.0);
+	
+	//view standard depth map
+	//float depthVal = LinearizeDepth(texture2D(screen_tex, tex).r);
+	//fragColor = vec4(vec3(depthVal), 1.0f);
+	
+
+	//view parabolic depth map
+	float val = texture2D(screen_tex, tex).r;
+	fragColor = vec4(val, val, val, 1.0);
+
+	
+	
 }
 
 

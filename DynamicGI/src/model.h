@@ -10,12 +10,33 @@
 #include "shader.h"
 
 
+struct c_vertex {
+	glm::vec3 pos;
+	glm::vec3 norm;
+	glm::vec3 col;
+};
+
+struct c_scene {
+	c_scene(std::vector<c_vertex> a, std::vector<unsigned int> b);
+	void setupMesh();
+	void Draw();
+	std::vector<c_vertex> cv;
+	std::vector<unsigned int> idx;
+
+	GLuint vao;
+	GLuint vbo;
+	GLuint ibo;
+};
+
+std::ostream& operator<< (std::ostream& stream, const c_vertex& c);
+
 
 struct vertex {
 	glm::vec3 pos;
 	glm::vec2 uv;
 	glm::vec3 normal;
 };
+
 
 struct Texture {
 	GLuint id;

@@ -10,6 +10,7 @@ mesh_loader::mesh_loader()
 
 mesh_loader::mesh_loader(const char* path, model_type type)
 {
+	m_type = type;
 	std::cout << "loading model at : " << path << std::endl;
 	loadModel(path);	
 	bb_center();
@@ -18,9 +19,19 @@ mesh_loader::mesh_loader(const char* path, model_type type)
 
 void mesh_loader::Draw(Shader shader)
 {
-	for (auto& m : models)
+	if (m_type == model_type::TEXTURED)
 	{
-		m.Draw(shader);		
+		for (auto& m : models)
+		{
+			m.Draw(shader);
+		}
+	}
+	else if(m_type == model_type::NO_TEXTURE) 
+	{
+		for (auto& m : cornel)
+		{
+			m.Draw();
+		}
 	}
 }
 
@@ -31,7 +42,7 @@ void mesh_loader::loadModel(std::string path)
 #endif
 	Assimp::Importer importer; 
 	//aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
-	const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices );
+	const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices | aiProcess_GenNormals );
 
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 	{
@@ -76,6 +87,7 @@ Model mesh_loader::processModel(aiMesh * mesh, const aiScene * scene)
 	std::vector<vertex> vertices;
 	std::vector<unsigned int> indices;
 	std::vector<Texture> textures;
+	std::vector<c_vertex> col;
 
 	for (int i = 0; i < mesh->mNumVertices; i++)
 	{
@@ -113,8 +125,10 @@ Model mesh_loader::processModel(aiMesh * mesh, const aiScene * scene)
 		//vec.x = mesh->mBitangents[i].z;
 		//vert.bitangent = vec;
 
-		vertices.push_back(vert);
-
+		vertices.push_back(vert);		
+		
+		c_vertex v{ vert.pos, vert.normal, glm::vec3(0.0) };
+		col.push_back(v);
 	}
 
 	for (int i = 0; i < mesh->mNumFaces; i++)
@@ -124,8 +138,16 @@ Model mesh_loader::processModel(aiMesh * mesh, const aiScene * scene)
 			indices.push_back(face.mIndices[j]);
 	}
 
-
 	aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
+
+	aiColor3D color(0.0, 0.0, 0.0);
+	material->Get(AI_MATKEY_COLOR_DIFFUSE, color);
+
+	for (auto& c : col)
+	{
+		c.col = glm::vec3(color.r, color.g, color.b);
+	}
+
 
 	std::vector<Texture> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");
 	textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
@@ -142,6 +164,7 @@ Model mesh_loader::processModel(aiMesh * mesh, const aiScene * scene)
 #ifdef SHOW_MSG
 	std::cout << "finished process model" << std::endl;
 #endif
+	cornel.push_back(c_scene(col, indices));
 
 	return Model(vertices, indices, textures);
 }

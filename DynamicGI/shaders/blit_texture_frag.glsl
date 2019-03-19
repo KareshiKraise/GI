@@ -28,6 +28,7 @@ float LinearizeDepth(float depth)
 void main(){
 	
 	vec3 d = vec3(texture(texImage, tex).rgb);
+	
 	color = vec4(d, 1.0);
 	
 

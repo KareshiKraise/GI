@@ -11,7 +11,8 @@ enum class fbo_type {
 	RADIOSITY_PARAM = 0x05,
 	COLOR_BUFFER = 0X06,  //general purpose single render target albedo buffer
 	G_BUFFER_V2 = 0X07,
-	CUBE_MAP = 0X08
+	CUBE_MAP = 0X08,
+	INDIRECT = 0X09
 };
 
 class framebuffer {

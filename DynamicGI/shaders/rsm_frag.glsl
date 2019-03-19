@@ -14,7 +14,6 @@ uniform float lightColor;
 uniform vec3 lightDir;
 uniform sampler2D texture_diffuse1;
 
-
 void main() {
 	rsm_position = fs_in.pos;
 	rsm_normal = normalize(fs_in.normal);

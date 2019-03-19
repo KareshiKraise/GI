@@ -2,6 +2,60 @@
 #include "mesh_loader.h"
 #include "GL_CALL.h"
 
+c_scene::c_scene(std::vector<c_vertex> a, std::vector<unsigned int> b) 
+{
+	cv = a;
+	idx = b;
+	this->setupMesh();
+}
+
+void c_scene::setupMesh()
+{
+	GLCall(glGenVertexArrays(1, &vao));
+	GLCall(glGenBuffers(1, &vbo));
+	GLCall(glGenBuffers(1, &ibo));
+
+	GLCall(glBindVertexArray(vao));
+	GLCall(glBindBuffer(GL_ARRAY_BUFFER, vbo));
+	GLCall(glBufferData(GL_ARRAY_BUFFER, cv.size() * sizeof(c_vertex), &cv[0], GL_STATIC_DRAW));
+
+	GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo));
+	GLCall(glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx.size() * sizeof(unsigned int), &idx[0], GL_STATIC_DRAW));
+
+	GLCall(glEnableVertexAttribArray(0));
+	GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(c_vertex), (void*)0));
+
+	GLCall(glEnableVertexAttribArray(1));
+	GLCall(glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(c_vertex), (void*)offsetof(c_vertex, norm)));
+
+	GLCall(glEnableVertexAttribArray(2));
+	GLCall(glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(c_vertex), (void*)offsetof(c_vertex, col)));
+
+	GLCall(glBindVertexArray(0));
+}
+
+void c_scene::Draw()
+{
+	glBindVertexArray(vao);
+	glDrawElements(GL_TRIANGLES, idx.size(), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+}
+
+
+std::ostream& operator<< (std::ostream& stream, const c_vertex& c)
+{
+stream << "c_vertex.pos.x  =  " << c.pos.x << std::endl;
+stream << "c_vertex.pos.y  =  " << c.pos.y << std::endl;
+stream << "c_vertex.pos.z  =  " << c.pos.z << std::endl;
+
+stream << "c_vertex.norm.x  =  " << c.norm.x << std::endl;
+stream << "c_vertex.norm.y  =  " << c.norm.y << std::endl;
+stream << "c_vertex.norm.z  =  " << c.norm.z << std::endl;
+
+stream << "c_vertex.col.x  =  " << c.col.x << std::endl;
+stream << "c_vertex.col.y  =  " << c.col.y << std::endl;
+stream << "c_vertex.col.z  =  " << c.col.z << std::endl;
+}
 
 Model::Model(std::vector<vertex> verts,
 	std::vector<unsigned int> inds,

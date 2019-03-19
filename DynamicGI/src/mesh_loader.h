@@ -13,7 +13,6 @@ enum class model_type {
 	NO_TEXTURE = 2,
 };
 
-
 class mesh_loader
 {
 public:
@@ -30,12 +29,13 @@ public:
 		std::cout << "models vector has " << models.size() << " models" << std::endl;
 		return models.back();
 	}
-private:
-
+public:
+	std::vector<c_scene> cornel;
 	std::vector<Model> models;
 	std::vector<Texture> textures_loaded;
 	std::string  directory;
 	bool gammaCorrection;
+	model_type m_type;
 
 	void loadModel(std::string path);
 	void processNode(aiNode *node, const aiScene *scene);
