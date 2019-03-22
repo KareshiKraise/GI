@@ -1,7 +1,7 @@
 #version 430
 
-#define BASE_NUM_VPLS 16
-#define TOTAL_VPLS (16*16)
+#define BASE_NUM_VPLS 8
+#define TOTAL_VPLS (BASE_NUM_VPLS*BASE_NUM_VPLS)
 
 layout(local_size_x = BASE_NUM_VPLS, local_size_y = BASE_NUM_VPLS) in;
 

@@ -40,6 +40,7 @@ void main() {
 	{
 		uint into_array = gl_LocalInvocationIndex * num_vpls + i;
 		uint id = vpl_to_val[into_array];
+		//fourth component of normal has the correspondent val index
 		vpl_list[id].n.w = gl_LocalInvocationIndex;
 		//unsigned int val_idx = gl_LocalInvocationIndex;
 		//indexed_vpl[id] = indexed_point_light(curr.p, curr.n, curr.c, val_idx);

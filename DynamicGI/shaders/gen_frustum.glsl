@@ -65,7 +65,7 @@ void main() {
 		corners[2] = unproject(vec4(c_maxX, c_minY, 1.0f, 1.0f));
 		corners[3] = unproject(vec4(c_minX, c_minY, 1.0f, 1.0f));
 
-		unsigned int index = gl_WorkGroupID.y * gl_NumWorkGroups.x + gl_WorkGroupID.x;
+		uint index = gl_WorkGroupID.y * gl_NumWorkGroups.x + gl_WorkGroupID.x;
 		for (int i = 0; i < 4; i++)
 		{
 			//create planes with normals pointing to the inside splace of the frustum

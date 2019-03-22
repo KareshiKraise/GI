@@ -14,7 +14,7 @@ int window::create_window(int w, int h) {
 	}
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
 	this->wnd = glfwCreateWindow(w, h, "DynamicGI", NULL, NULL);
 	Wid = w;

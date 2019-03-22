@@ -14,8 +14,8 @@ uniform mat4 V;
 uniform mat4 M;
 
 //near and far planes
-const float near = 1.0f;
-const float far = 80.0f;
+uniform float near;
+uniform float far ;
 
 
 void main() {

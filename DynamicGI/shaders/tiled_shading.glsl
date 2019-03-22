@@ -2,8 +2,6 @@
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
-//max lights per tile we can handle
-
 
 #define Wid 1280.0f
 #define Hei 720.0f
@@ -259,34 +257,7 @@ void main(void){
 	
 	barrier();
 	memoryBarrierShared();
-	
-	//Compute frustum		
-	//min and max coords of screen space tile
-	//uint minX = gl_WorkGroupSize.x * gl_WorkGroupID.x;
-	//uint minY = gl_WorkGroupSize.y * gl_WorkGroupID.y;
-	//uint maxX = gl_WorkGroupSize.x * (gl_WorkGroupID.x + 1);
-	//uint maxY = gl_WorkGroupSize.y * (gl_WorkGroupID.y + 1);
-	//
-	//float c_minY = (float(minY) / Hei)  *  2.0f - 1.0f;
-	//float c_minX = (float(minX) / Wid)  *  2.0f - 1.0f;
-	//float c_maxX = (float(maxX) / Wid)  *  2.0f - 1.0f;
-	//float c_maxY = (float(maxY) / Hei)  *  2.0f - 1.0f;
-	//
-	////Corners in NDC
-	//vec4 corners[4];
-	//
-	////project corners to far plane
-	//corners[0] = unproject(vec4(c_minX, c_maxY, 1.0f, 1.0f));
-	//corners[1] = unproject(vec4(c_maxX, c_maxY, 1.0f, 1.0f));
-	//corners[2] = unproject(vec4(c_maxX, c_minY, 1.0f, 1.0f));
-	//corners[3] = unproject(vec4(c_minX, c_minY, 1.0f, 1.0f));
-	//		
-	//for (int i = 0; i < 4; i++)
-	//{
-	//	//create planes with normals pointing to the inside splace of the frustum
-	//	frustum[i] = create_plane2(corners[i], corners[(i + 1) & 3]);
-	//}
-		
+				
 	float maxZ = uintBitsToFloat(maxDepth);
 	float minZ = uintBitsToFloat(minDepth);		
 	
@@ -358,7 +329,7 @@ void main(void){
 	
 	barrier();
 	
-	memoryBarrierShared();		
+	//memoryBarrierShared();		
 
 	//light calculation
 	vec3 pnormal = texture(normalBuffer, uv).xyz;
@@ -369,6 +340,7 @@ void main(void){
 	
 	vec3 palbedo = flux.rgb;	
 	float spec_c = flux.a;
+	
 
 	vec4 col = vec4(0.0, 0.0, 0.0, 1.0);
 	
@@ -377,7 +349,7 @@ void main(void){
 	vec3 eyeDir = normalize(ppos - eyePos);
 	float spec = 0.0f;
 	vec3 half_v = normalize(sun_Dir + eyeDir);
-	spec = pow(max(dot(pnormal, half_v), 0.0), 8);	
+	spec = pow(max(dot(pnormal, half_v), 0.0), 16);	
 	vec3 glossy = vec3(spec) * spec_c;
 	
 	vec4 pos_lightspace = lightSpaceMat * vec4(mpos.xyz, 1.0);
@@ -393,7 +365,7 @@ void main(void){
 		uint idx = lightIdx[i];
 		plight l = list[idx];
 		//color accumulation
-		//col += vec4(doPointLight(l, ppos, pnormal, palbedo), 0.0);
+		//col += vec4(shade_point(l, ppos, pnormal, palbedo), 0.0);
 		float ret;
 		if (l.n.w == 0)
 		{
@@ -410,9 +382,8 @@ void main(void){
 		if (l.n.w == 3)
 		{
 			ret = ParabolicShadow(mpos, parabolicMat4, pShadowMap4);
-		}
-		
-		col += ret *vec4(doPointLight(l, ppos, pnormal, palbedo), 0.0);
+		}		
+		col += ret *vec4(shade_point(l, ppos, pnormal, palbedo), 0.0);
 		
 	}
 	
@@ -420,7 +391,7 @@ void main(void){
 	{
 		uint idx = backLightIdx[i];
 		plight l = back_vpl_list[idx];
-		col += vec4(doPointLight(l, ppos, pnormal, palbedo), 0.0);
+		col += vec4(shade_point(l, ppos, pnormal, palbedo), 0.0);
 	}
 
 	col *= flux;
@@ -430,8 +401,9 @@ void main(void){
 
 	imageStore(imageBuffer, fpos , col);
 
+	
 	//if (gl_LocalInvocationID.x == 0 || gl_LocalInvocationID.y == 0 || gl_LocalInvocationID.x == 16 || gl_LocalInvocationID.y == 16)
-	//	imageStore(imageBuffer, fpos, vec4(0.1f, 0.1f, 0.1f, 0.2f));
+	//	imageStore(imageBuffer, fpos, vec4(1.f, 1.f, 1.f, 0.2f));
 
 
 }

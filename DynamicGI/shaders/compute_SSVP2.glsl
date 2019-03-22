@@ -24,9 +24,13 @@ layout(std430, binding = 1) buffer backface_vpl_count {
 	unsigned int back_vpl_count;
 };
 
-#define SECOND_BOUNCE_RAD 35.0f
-void main() {
+uniform float vpl_radius;
 
+
+void main() {
+     
+	float SECOND_BOUNCE_RAD = vpl_radius - (vpl_radius*.2f);  
+	
 	vec2 uv = imageLoad(samples, int(gl_LocalInvocationIndex)).rg;
 
 	vec3 p = texture2D(prsm_pos , uv).xyz;

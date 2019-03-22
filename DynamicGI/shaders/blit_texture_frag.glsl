@@ -30,7 +30,7 @@ void main(){
 	vec3 d = vec3(texture(texImage, tex).rgb);
 	
 	color = vec4(d, 1.0);
-	
+	gl_FragDepth = texture(depthImage, tex).r;
 
 	//see depth
 	//float z = texture(depthImage, tex).r;

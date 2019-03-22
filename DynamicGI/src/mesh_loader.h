@@ -36,6 +36,9 @@ public:
 	std::string  directory;
 	bool gammaCorrection;
 	model_type m_type;
+	glm::vec3 max;
+	glm::vec3 min;
+
 
 	void loadModel(std::string path);
 	void processNode(aiNode *node, const aiScene *scene);

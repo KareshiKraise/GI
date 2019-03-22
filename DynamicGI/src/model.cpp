@@ -44,17 +44,19 @@ void c_scene::Draw()
 
 std::ostream& operator<< (std::ostream& stream, const c_vertex& c)
 {
-stream << "c_vertex.pos.x  =  " << c.pos.x << std::endl;
-stream << "c_vertex.pos.y  =  " << c.pos.y << std::endl;
-stream << "c_vertex.pos.z  =  " << c.pos.z << std::endl;
+stream << "c_vertex.pos.x  =  " << c.pos.x << '\n';
+stream << "c_vertex.pos.y  =  " << c.pos.y << '\n';
+stream << "c_vertex.pos.z  =  " << c.pos.z << '\n';
 
-stream << "c_vertex.norm.x  =  " << c.norm.x << std::endl;
-stream << "c_vertex.norm.y  =  " << c.norm.y << std::endl;
-stream << "c_vertex.norm.z  =  " << c.norm.z << std::endl;
+stream << "c_vertex.norm.x  =  " << c.norm.x << '\n';
+stream << "c_vertex.norm.y  =  " << c.norm.y << '\n';
+stream << "c_vertex.norm.z  =  " << c.norm.z << '\n';
 
-stream << "c_vertex.col.x  =  " << c.col.x << std::endl;
-stream << "c_vertex.col.y  =  " << c.col.y << std::endl;
-stream << "c_vertex.col.z  =  " << c.col.z << std::endl;
+stream << "c_vertex.col.x  =  " << c.col.x << '\n';
+stream << "c_vertex.col.y  =  " << c.col.y << '\n';
+stream << "c_vertex.col.z  =  " << c.col.z << '\n';
+
+return stream;
 }
 
 Model::Model(std::vector<vertex> verts,

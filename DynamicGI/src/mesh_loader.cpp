@@ -250,6 +250,9 @@ void mesh_loader::bb_center()
 		}
 	}
 	bb_mid = glm::vec3((minX + maxX) / 2.0f, (minY + maxY) / 2.0f, (minZ + maxZ) / 2.0f);
+
+	max = glm::vec3(maxX, maxY, maxZ);
+	min = glm::vec3(minX, minY, minZ);
 }
 
 unsigned int TextureFromFile(const char * path, const std::string& directory, bool gamma = false)

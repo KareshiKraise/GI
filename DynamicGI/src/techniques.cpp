@@ -41,7 +41,7 @@ void update_clusters(Shader& update_cluster_program, int num_VALs, int num_VPLs)
 	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
 }
 
-void shadow_pass(shadow_data& data, framebuffer& depth_buffer, mesh_loader& mesh) {
+void shadow_pass(shadow_data& data, framebuffer& depth_buffer, mesh_loader& mesh, glm::mat4& model) {
 
 	glm::mat4 lightspacemat = data.proj * data.view;
 
@@ -49,7 +49,7 @@ void shadow_pass(shadow_data& data, framebuffer& depth_buffer, mesh_loader& mesh
 	//glCullFace(GL_FRONT);
 	data.shader->use();
 	data.shader->setMat4("PV", lightspacemat);
-	data.shader->setMat4("M", data.model);
+	data.shader->setMat4("M", model);
 	glViewport(0, 0, data.s_w, data.s_h);
 	depth_buffer.bind();
 	glClear(GL_DEPTH_BUFFER_BIT);
@@ -153,7 +153,7 @@ void do_SSVP(Shader& SSVP, shader_storage_buffer& lightSSBO, GLuint samplesTBO, 
 
 }
 
-void fill_lightSSBO(const framebuffer& buffer, const glm::mat4& view, Shader& ssbo_program, GLuint tbo, shader_storage_buffer& ssbo, int samples)
+void fill_lightSSBO(const framebuffer& buffer, const glm::mat4& view, Shader& ssbo_program, GLuint tbo, shader_storage_buffer& ssbo, int samples, float radius)
 {
 	//std::cout << "ssbo is empty, will generate vpl buffer" << std::endl;
 	ssbo_program.use();
@@ -169,6 +169,7 @@ void fill_lightSSBO(const framebuffer& buffer, const glm::mat4& view, Shader& ss
 	GLCall(glBindTexture(GL_TEXTURE_2D, buffer.normal));
 	ssbo_program.setInt("rsm_normal", 2);
 
+	ssbo_program.setFloat("vpl_radius", radius);
 	
 	//ssbo_program.setMat4("V", view);
 
@@ -235,9 +236,7 @@ void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& 
 	tiled_shading.setInt("num_vpls", numVPL);
 	tiled_shading.setInt("num_vals", numVAL);
 	tiled_shading.setFloat("near", near);
-	tiled_shading.setFloat("far", far);
-	//GLCall(glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, lightSSBO));
-	lightSSBO.bindBase(5);
+	tiled_shading.setFloat("far", far);	
 	GLCall(glDispatchCompute(ceil(Wid / 16), ceil(Hei / 16), 1));
 	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
 }
@@ -316,7 +315,7 @@ void blur_pass(quad& screen, unsigned int source_id, Shader& blur_program, frame
 }
 
 void compute_vpl_propagation(Shader& ssvp, const std::vector<glm::mat4>& pView, const framebuffer& gbackbuffer, const std::vector<framebuffer>& paraboloidmaps,
-	GLuint samplesTBO, float near, float far, int NUM_VPLS, int num_VALs)
+	GLuint samplesTBO, float near, float far, int NUM_VPLS, int num_VALs, float vpl_radius)
 {	
 	ssvp.use();
 	
@@ -341,6 +340,8 @@ void compute_vpl_propagation(Shader& ssvp, const std::vector<glm::mat4>& pView, 
 	GLCall(glActiveTexture(GL_TEXTURE2));
 	GLCall(glBindTexture(GL_TEXTURE_2D, gbackbuffer.albedo));
 	ssvp.setInt("prsm_flux", 2);
+
+	ssvp.setFloat("vpl_radius", vpl_radius);
 
 	//GLCall(glActiveTexture(GL_TEXTURE3));
 	//GLCall(glBindTexture(GL_TEXTURE_2D, paraboloidmaps[0].depth_map));
@@ -512,7 +513,7 @@ void rsm_pass(Shader& RSM_pass, framebuffer& rsm, shadow_data& light_data, scene
 	RSM_pass.use();
 	RSM_pass.setMat4("P", light_data.proj);
 	RSM_pass.setMat4("V", light_data.view);
-	RSM_pass.setMat4("M", light_data.model);
+	RSM_pass.setMat4("M", s.model);
 	RSM_pass.setFloat("lightColor", 0.65f);
 	RSM_pass.setVec3("lightDir", light_data.lightDir);
 	glViewport(0, 0, light_data.s_w, light_data.s_h);
@@ -527,17 +528,12 @@ void gbuffer_pass(framebuffer& gbuffer, Shader& gbuf_program, scene& s, glm::mat
 
 	gbuffer.bind();
 	glViewport(0, 0, gbuffer.w_res, gbuffer.h_res);
-	//gbuffer.set_intermediate_pass();
-	//glClear(GL_COLOR_BUFFER_BIT);
-	//gbuffer.set_geometry_pass();
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	//s.view = s.camera->GetViewMatrix();	
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	
 	gbuf_program.use();
 	gbuf_program.setMat4("M", s.model);
 	gbuf_program.setMat4("V", view);
 	gbuf_program.setMat4("P", s.proj);
 	s.mesh->Draw(gbuf_program);
-	//unbind when stenciled
 	gbuffer.unbind();
 }
 
@@ -610,7 +606,7 @@ void do_parabolic_map(const glm::mat4& parabolicModelView, framebuffer& paraboli
 	parabolic_sm.unbind();
 }
 
-void do_parabolic_rsm(const glm::mat4& View, framebuffer& parabolic_sm, Shader& parabolic_map, float ism_w, float ism_h, scene& sponza)
+void do_parabolic_rsm(const glm::mat4& View, framebuffer& parabolic_sm, Shader& parabolic_map, float ism_w, float ism_h, scene& sponza, float n, float f)
 {
 	glViewport(0, 0, ism_w, ism_h);
 	parabolic_map.use();
@@ -618,6 +614,8 @@ void do_parabolic_rsm(const glm::mat4& View, framebuffer& parabolic_sm, Shader& 
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 	parabolic_map.setMat4("M", sponza.model);
 	parabolic_map.setMat4("V", View);
+	parabolic_map.setFloat("near", n);
+	parabolic_map.setFloat("far", f);
 	sponza.mesh->Draw(parabolic_map);
 	parabolic_sm.unbind();
 }
