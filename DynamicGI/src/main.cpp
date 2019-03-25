@@ -48,6 +48,25 @@ void kbfunc(GLFWwindow* window, int key, int scan, int action, int mods);
 //mouse function
 void mfunc(GLFWwindow *window, double xpos, double ypos);
 
+#define FRAME_AVG 60
+struct frametime_data
+{
+	int frame_count;	
+	double data[FRAME_AVG];
+};
+
+double avg_fps(frametime_data &dat)
+{
+	double sum = 0;
+	for (int i = 0; i < FRAME_AVG; i++)
+	{
+		sum += dat.data[i];
+	}
+	sum /= FRAME_AVG;
+	sum = 1000.0 / sum;
+	return sum;
+}
+
 
 /* GUI STUFF*/
 static void glfw_error_callback(int error, const char* description)
@@ -66,7 +85,7 @@ void init_gui(GLFWwindow *w) {
 	// Setup Style
 	ImGui::StyleColorsLight();
 }
-void render_gui(double delta) {
+void render_gui(double delta, double fps) {
 	// Start the Dear ImGui frame
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -76,6 +95,7 @@ void render_gui(double delta) {
 	{
 		ImGui::Begin("CPU Timer");
 		ImGui::Text("%f miliseconds per frame", delta);	
+		ImGui::Text("%f frames per second", fps);
 		ImGui::End();
 	}
 	//IMGUI render
@@ -89,6 +109,10 @@ void destroy_gui() {
 }
 
 int main(int argc, char **argv) {	
+
+	//frametime data 
+	frametime_data time_dat;
+	time_dat.frame_count = 0;
 	
 	//Shader hash
 	std::unordered_map<std::string, Shader> shader_table;
@@ -294,7 +318,6 @@ int main(int argc, char **argv) {
 	shader_table["cluster vals"] = clusterize_vals;
 	shader_table["update vals"] = update_vals;
 	shader_table["gen final buffer"] = generate_final_buffer;
-
 
 	//END OF SHADER DECLARATIONS
 
@@ -759,8 +782,15 @@ int main(int argc, char **argv) {
 			tf = glfwGetTime();
 			delta_t = (tf - t0) * 1000.0;
 			gdelta_t = delta_t;
+
+			if (time_dat.frame_count < FRAME_AVG)
+				time_dat.data[time_dat.frame_count++] = delta_t;
+			else
+				time_dat.frame_count = 0;
+			
+			double fps = avg_fps(time_dat);
 			t0 = tf;
-			render_gui(delta_t);
+			render_gui(delta_t, fps);
 		}
 		
 

@@ -84,6 +84,10 @@ struct frustum {
 	glm::vec4 planes[4];
 };
 
+struct scene_info {
+
+};
+
 /* --- FUNCTION SIGNATURES ---*/
 
 void cluster_vpls(Shader& cluster_program, const framebuffer& rsm_buffer, int num_VALs, int num_VPLs, bool start_frame, uniform_buffer& kvals);
