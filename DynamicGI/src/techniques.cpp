@@ -183,7 +183,7 @@ void fill_lightSSBO(const framebuffer& buffer, const glm::mat4& view, Shader& ss
 	ssbo.unbind();
 }
 
-void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& rsm_buffer, GLuint draw_tex, glm::mat4& invProj, scene& sponza, shadow_data& shadowmap, int numVPL, int numVAL, shader_storage_buffer& lightSSBO, float Wid, float Hei, float near, float far, const std::vector<glm::mat4>& pView, const std::vector<framebuffer>& pfbo) {
+void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& rsm_buffer, GLuint draw_tex, glm::mat4& invProj, scene& sponza, shadow_data& shadowmap, int numVPL, int numVAL, shader_storage_buffer& lightSSBO, float Wid, float Hei, float near, float far, const std::vector<glm::mat4>& pView, const std::vector<framebuffer>& pfbo, bool see_bounce) {
 
 	tiled_shading.use();
 
@@ -237,6 +237,7 @@ void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& 
 	tiled_shading.setInt("num_vals", numVAL);
 	tiled_shading.setFloat("near", near);
 	tiled_shading.setFloat("far", far);	
+	tiled_shading.setBool("double_bounce", see_bounce);
 	GLCall(glDispatchCompute(ceil(Wid / 16), ceil(Hei / 16), 1));
 	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
 }

@@ -39,6 +39,9 @@ uniform int num_vals;
 //directional light 
 uniform vec3 sun_Dir;
 
+//do second bounce
+uniform bool double_bounce;
+
 layout(rgba32f, binding = 0) uniform image2D imageBuffer;
 
 struct frustum {
@@ -296,39 +299,39 @@ void main(void){
 	}
 
 	barrier();
-
-	
-	//second bounce lights
-	for (uint i = gl_LocalInvocationIndex; i < back_vpl_count; i += max_threads)
+	if (double_bounce == true)
 	{
-		plight l = back_vpl_list[i];
-		vec4 vs_light_pos = ViewMat * vec4(l.p.xyz, 1.0);
-		unsigned int index = gl_WorkGroupID.y * gl_NumWorkGroups.x + gl_WorkGroupID.x;
-		if (backLightCount < MAX_BACK_LIGHTS)
+		//second bounce lights
+		for (uint i = gl_LocalInvocationIndex; i < back_vpl_count; i += max_threads)
 		{
-	
-			if (
-				(abs(dist_point_plane(vs_light_pos, f[index].planes[0])) < l.p.w) &&
-				(abs(dist_point_plane(vs_light_pos, f[index].planes[1])) < l.p.w) &&
-				(abs(dist_point_plane(vs_light_pos, f[index].planes[2])) < l.p.w) &&
-				(abs(dist_point_plane(vs_light_pos, f[index].planes[3])) < l.p.w)
-				)
+			plight l = back_vpl_list[i];
+			vec4 vs_light_pos = ViewMat * vec4(l.p.xyz, 1.0);
+			unsigned int index = gl_WorkGroupID.y * gl_NumWorkGroups.x + gl_WorkGroupID.x;
+			if (backLightCount < MAX_BACK_LIGHTS)
 			{
-				//opengl view space is right handed
+
 				if (
-					(vs_light_pos.z - l.p.w < minZ) &&
-					(vs_light_pos.z + l.p.w > maxZ)
+					(abs(dist_point_plane(vs_light_pos, f[index].planes[0])) < l.p.w) &&
+					(abs(dist_point_plane(vs_light_pos, f[index].planes[1])) < l.p.w) &&
+					(abs(dist_point_plane(vs_light_pos, f[index].planes[2])) < l.p.w) &&
+					(abs(dist_point_plane(vs_light_pos, f[index].planes[3])) < l.p.w)
 					)
 				{
-					uint id = atomicAdd(backLightCount, 1);
-					backLightIdx[id] = i;
+					//opengl view space is right handed
+					if (
+						(vs_light_pos.z - l.p.w < minZ) &&
+						(vs_light_pos.z + l.p.w > maxZ)
+						)
+					{
+						uint id = atomicAdd(backLightCount, 1);
+						backLightIdx[id] = i;
+					}
 				}
 			}
 		}
+
+		barrier();
 	}
-	
-	barrier();
-	
 	//memoryBarrierShared();		
 
 	//light calculation
@@ -386,14 +389,15 @@ void main(void){
 		col += ret *vec4(shade_point(l, ppos, pnormal, palbedo), 0.0);
 		
 	}
-	
-	for (uint i = 0; i < backLightCount; ++i)
+	if (double_bounce == true)
 	{
-		uint idx = backLightIdx[i];
-		plight l = back_vpl_list[idx];
-		col += vec4(shade_point(l, ppos, pnormal, palbedo), 0.0);
+		for (uint i = 0; i < backLightCount; ++i)
+		{
+			uint idx = backLightIdx[i];
+			plight l = back_vpl_list[idx];
+			col += vec4(shade_point(l, ppos, pnormal, palbedo), 0.0);
+		}
 	}
-
 	col *= flux;
 	
 	barrier();	

@@ -32,6 +32,7 @@ int current_view = 0;
 bool view_vpls = false;
 bool debug_view = false;
 bool view_parabolic = false;
+bool see_bounce = true;
 
 glm::vec3 ref_up;
 glm::vec3 ref_front;
@@ -708,7 +709,7 @@ int main(int argc, char **argv) {
 			backface_vpls.bindBase(3);
 			backface_vpl_count.bindBase(4);			
 			
-			do_tiled_shading(shader_table["tiled shading"], gbuffer, rsm_buffer, draw_tex, invProj, current_scene, light_data, VPL_SAMPLES, num_val_clusters, lightSSBO, Wid, Hei, ism_near, ism_far, pView, parabolic_fbos);
+			do_tiled_shading(shader_table["tiled shading"], gbuffer, rsm_buffer, draw_tex, invProj, current_scene, light_data, VPL_SAMPLES, num_val_clusters, lightSSBO, Wid, Hei, ism_near, ism_far, pView, parabolic_fbos, see_bounce);
 			
 			frustum_planes.unbind();			
 			lightSSBO.unbind();		
@@ -867,7 +868,7 @@ void kbfunc(GLFWwindow* window, int key, int scan, int action, int mods) {
 		std::cout << "view parabolic depth map" << std::endl;
 	}
 	if (key == GLFW_KEY_J && (action == GLFW_PRESS)) {
-		
+		see_bounce = !see_bounce;
 	}
 
 	if (key == GLFW_KEY_0 && (action == GLFW_PRESS)) {
