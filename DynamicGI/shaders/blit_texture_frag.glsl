@@ -27,9 +27,14 @@ float LinearizeDepth(float depth)
 
 void main(){
 	
-	vec3 d = vec3(texture(texImage, tex).rgb);
 	
-	color = vec4(d, 1.0);
+	vec3 d = vec3(texture(texImage, tex).rgb);
+	const float gamma = 2.2f;	
+	
+	vec3 mapped = vec3(1.0f) - exp(-d * 5.f);
+	mapped = pow(mapped, vec3(1.0f/gamma));
+
+	color = vec4(mapped, 1.0);
 	gl_FragDepth = texture(depthImage, tex).r;
 
 	//see depth
