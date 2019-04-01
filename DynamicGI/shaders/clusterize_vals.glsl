@@ -7,6 +7,7 @@ layout(local_size_x = BASE_NUM_VPLS, local_size_y = BASE_NUM_VPLS) in;
 
 uniform int num_vals;
 uniform int vpl_samples;
+uniform bool first_cluster_pass;
 
 struct plight {
 	vec4 p;
@@ -34,26 +35,29 @@ layout(std430, binding = 3) buffer count_vpl_per_val {
 	unsigned int vpl_count[];
 };
 
-const float wx = 0.7;
-const float wa = 0.3;
+const float wx = 0.6;
+const float wa = 0.4;
 
 void main()
 {
 	
-	if (gl_LocalInvocationIndex == 0)
+	if (first_cluster_pass == true)
 	{
-		for (int i =0; i<num_vals; i++)
+		if (gl_LocalInvocationIndex == 0)
 		{
-			vpl_count[i] = 0;
+			for (int i = 0; i < num_vals; i++)
+			{
+				vpl_count[i] = 0;
+			}
 		}
 	}
-	
+
 	barrier();
 
 	plight current_light = vpl_list[gl_LocalInvocationIndex];
 	
 	float delta_d = length(first_val_list[0].p.xyz - current_light.p.xyz);
-	float delta_a = dot(normalize(first_val_list[0].n.xyz), normalize(current_light.n.xyz));
+	float delta_a = acos(dot(normalize(first_val_list[0].n.xyz), normalize(current_light.n.xyz)));
 	float dist = delta_d * wx + delta_a * wa;
 	unsigned int closer_val_index = 0;
 

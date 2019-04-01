@@ -84,10 +84,6 @@ struct frustum {
 	glm::vec4 planes[4];
 };
 
-struct scene_info {
-
-};
-
 /* --- FUNCTION SIGNATURES ---*/
 
 void cluster_vpls(Shader& cluster_program, const framebuffer& rsm_buffer, int num_VALs, int num_VPLs, bool start_frame, uniform_buffer& kvals);
@@ -108,8 +104,6 @@ void shadow_pass(shadow_data& data, framebuffer& depth_buffer, mesh_loader& mesh
 
 std::vector<glm::vec2> gen_uniform_samples(unsigned int s, float min, float max);
 
-void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO, GLuint& instanceVBO, Model& sphere, std::vector<glm::vec2>& samples);
-
 void compute_vpl_propagation(Shader& ssvp, const std::vector<glm::mat4>& pView, const framebuffer& gbackbuffer, const std::vector<framebuffer>& paraboloidmaps,
 	GLuint samplesTBO, float near, float far, int NUM_VPLS, int num_VALs, float vpl_radius);
 
@@ -125,14 +119,16 @@ void generate_rsm_sampling_pattern(std::vector<glm::vec2>& p, RSM_parameters& rs
 
 void blur_pass(quad& screen, unsigned int source_id, Shader& blur_program, framebuffer& blur_buffer);
 
-void draw_spheres(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sphere_scene, Model& sphere, Shader& sphereShader, GLuint sphereVAO, glm::vec3 mid, glm::vec2 coord);
-
-void draw_stenciled_spheres(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sphere_scene, Model& sphere, Shader& sphereShader, GLuint sphereVAO, glm::vec3& mid, glm::vec2& coord);
-
-void do_stencil_pass(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sponza, Shader& stencil_pass, GLuint sphereVAO, glm::vec3& sphere_mid, glm::vec2& dims, Model& sphere);
-
-void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& rsm_buffer, GLuint draw_tex, glm::mat4& invProj, scene& sponza, shadow_data& shadowmap, int numVPL, int numVAL ,shader_storage_buffer& lightSSBO, float Wid, float Hei, float near, float far, const std::vector<glm::mat4>& pView, const std::vector<framebuffer>& pfbo, bool see_bounce);
+void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& rsm_buffer, GLuint draw_tex, glm::mat4& invProj, scene& sponza, 
+	shadow_data& shadowmap, int numVPL, int numVAL ,shader_storage_buffer& lightSSBO, float Wid, float Hei, 
+	float near, float far, const std::vector<glm::mat4>& pView, const std::vector<framebuffer>& pfbo, bool see_bounce);
 
 void do_parabolic_map(const glm::mat4& parabolicModelView, framebuffer& parabolic_sm, Shader& parabolic_map, float ism_w, float ism_h, scene& sponza);
 
 void do_parabolic_rsm(const glm::mat4& parabolicModelView, framebuffer& parabolic_sm, Shader& parabolic_map, float ism_w, float ism_h, scene& sponza, float n, float f);
+
+void generate_vals(Shader& gen_vals, const framebuffer& rsm_buffer, GLuint val_sample_tbo, int num_vpls, int num_clusters);
+
+void calc_distance_to_val(Shader& clusterize_vals, int num_val_clusters, int num_vpls, bool first_pass);
+
+void update_cluster_centers(Shader& update_vals, int num_vpls);

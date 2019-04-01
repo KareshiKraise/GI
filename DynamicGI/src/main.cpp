@@ -32,7 +32,7 @@ int current_view = 0;
 bool view_vpls = false;
 bool debug_view = false;
 bool view_parabolic = false;
-bool see_bounce = true;
+bool see_bounce = false;
 
 glm::vec3 ref_up;
 glm::vec3 ref_front;
@@ -142,8 +142,11 @@ int main(int argc, char **argv) {
 	float ism_near;
 	float ism_far;
 
-	const int num_val_clusters = 4;
+	int num_val_clusters;
 	float vpl_radius;
+
+
+	int num_cluster_pass = 3;
 
 	/*----SET WINDOW AND CALLBACKS ----*/
 	window w;
@@ -166,7 +169,7 @@ int main(int argc, char **argv) {
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 
-	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClearColor(1.0, 1.0, 1.0, 1.0);
 	
 	if (argc > 1) 
 	{
@@ -192,9 +195,10 @@ int main(int argc, char **argv) {
 			light_data.s_h = rsm_res;
 			light_data.view = glm::lookAt(light_data.lightPos, current_scene.bb_mid, glm::vec3(0.0, 1.0, 0.2));
 			light_data.proj = glm::ortho(-1000.f, 1000.f, -200.f, 200.f, light_data.s_near, light_data.s_far);
-			vpl_radius = 700.f;
+			vpl_radius = 1000.f;
 			ism_near = 1.0;
 			ism_far = vpl_radius;
+			num_val_clusters = 4;
 		}
 		else if (model == "cbox") {
 			path = cornell_path;			
@@ -218,9 +222,10 @@ int main(int argc, char **argv) {
 			light_data.view = glm::lookAt(light_data.lightPos, light_data.lightPos + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0, 0.0, -1.0));
 			light_data.proj = glm::ortho(current_scene.mesh->min.x, current_scene.mesh->max.x, current_scene.mesh->min.z, current_scene.mesh->max.z, light_data.s_near, light_data.s_far);
 			
-			vpl_radius = 1.50f;
+			vpl_radius = 1.90f;
 			ism_near = 0.1;
 			ism_far = vpl_radius;
+			num_val_clusters = 4;
 		}
 		else {
 			std::cout <<  "unknown argument or command, program will exit." << std::endl;
@@ -249,9 +254,10 @@ int main(int argc, char **argv) {
 		light_data.view = glm::lookAt(light_data.lightPos, current_scene.bb_mid, glm::vec3(0.0, 1.0, 0.2));
 		light_data.proj = glm::ortho(-1000.f, 1000.f, -200.f, 200.f, light_data.s_near, light_data.s_far);
 		
-		vpl_radius = 700.f;
+		vpl_radius = 1000.f;
 		ism_near = 1.0;
 		ism_far = vpl_radius;
+		num_val_clusters = 4;
 	}
 	
 	//All shader declarations
@@ -329,13 +335,15 @@ int main(int argc, char **argv) {
 	framebuffer gbuffer(fbo_type::G_BUFFER, w.Wid, w.Hei, 0); 
 	//main RSM buffer
 	framebuffer rsm_buffer(fbo_type::RSM, light_data.s_w, light_data.s_h, 0);
+
 	std::vector<framebuffer> parabolic_fbos(num_val_clusters);
+
 	for (int i = 0; i < parabolic_fbos.size(); i++)
 	{
 		//parabolic_fbos[i] = framebuffer(fbo_type::SHADOW_MAP, ism_w, ism_h, 0);
 		parabolic_fbos[i] = framebuffer(fbo_type::RSM, ism_w, ism_h, 0);
 	}
-
+	
 	//ALL SSBO DECLARATIONS
 	
 	/*----FILL SSBO WITH LIGHTS ----*/
@@ -461,6 +469,7 @@ int main(int argc, char **argv) {
 	//Uniform Buffers Declarations
 
 	uniform_buffer val_mats(num_val_clusters * sizeof(glm::mat4));
+	val_mats.set_binding_point(0);
 	
 	bool first_frame = true;
 	/*------------------------------------------------------*/
@@ -529,10 +538,11 @@ int main(int argc, char **argv) {
 
 	//Tile Frustum generation decoupled from tiled frustum culling pass
 	generate_tile_frustum(gen_frustum, frustum_planes, Wid, Hei, invProj);		
-	
-	int num_cluster_pass = 2;
-	
+		
 	std::vector<glm::mat4> pView(num_val_clusters);
+
+	
+
 	//main loop
 	while (!w.should_close()) {			
 								
@@ -567,53 +577,41 @@ int main(int argc, char **argv) {
 				fill_lightSSBO(rsm_buffer, current_scene.camera->GetViewMatrix(), shader_table["sample rsm"], samplesTBO, lightSSBO, VPL_SAMPLES, vpl_radius);
 				is_filled = true;
 			}		
-				
-			// GENERATE VALS
-			gen_vals.use();
-			GLCall(glActiveTexture(GL_TEXTURE0));
-			GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.pos));
-			gen_vals.setInt("rsm_position", 0);
-			GLCall(glActiveTexture(GL_TEXTURE1));
-			GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.normal));
-			gen_vals.setInt("rsm_normal", 1);
-			GLCall(glActiveTexture(GL_TEXTURE2));
-			GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.albedo));
-			gen_vals.setInt("rsm_flux", 2);
-			GLCall(glBindImageTexture(0, val_sample_tbo, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG32F));
-			direct_vals.bindBase(0);
-			GLCall(glDispatchCompute(1, 1, 1));
-			GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
-			direct_vals.unbind();
-						
-			/* --- BEGIN CLUSTER PASS ---*/
 			
-			clusterize_vals.use();
+			// GENERATE VALS
+			direct_vals.bindBase(0);
+			lightSSBO.bindBase(1);
+			generate_vals(gen_vals, rsm_buffer, val_sample_tbo, VPL_SAMPLES, num_val_clusters);
+			direct_vals.unbind();
+			lightSSBO.unbind();
+
+			/* --- BEGIN CLUSTER PASS ---*/			
 			direct_vals.bindBase(0);
 			lightSSBO.bindBase(1);
 			vpls_per_val.bindBase(2);
 			count_vpl_per_val.bindBase(3);
-			clusterize_vals.setInt("num_vals", num_val_clusters);
-			clusterize_vals.setInt("vpl_samples", VPL_SAMPLES);
-			GLCall(glDispatchCompute(1, 1, 1));
-			GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
-			direct_vals.unbind();
-			lightSSBO.unbind();
-			vpls_per_val.unbind();
-			count_vpl_per_val.unbind();					
+						
+			bool first_cluster_pass = true;
 
-			//update vals
-			update_vals.use();
-			direct_vals.bindBase(0);
-			lightSSBO.bindBase(1);
-			vpls_per_val.bindBase(2);
-			count_vpl_per_val.bindBase(3);			
-			update_vals.setInt("vpl_samples", VPL_SAMPLES);
-			GLCall(glDispatchCompute(1, 1, 1));
-			GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+			for (int i = 0; i < num_cluster_pass; i++)
+			{
+				//distance to vals
+				calc_distance_to_val(clusterize_vals, num_val_clusters, VPL_SAMPLES, first_cluster_pass);
+				//update vals
+				update_cluster_centers(update_vals, VPL_SAMPLES);
+				first_cluster_pass = false;
+			}
 			direct_vals.unbind();
 			lightSSBO.unbind();
 			vpls_per_val.unbind();
 			count_vpl_per_val.unbind();
+
+			//vpls_per_val.bind();
+			//unsigned int *test = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+			//vpls_per_val.unbind();
+			//for(int i =0; i < num_val_clusters; i++)
+			//	std::cout << "num vpls in " << i << " cluster: " << test[i] << std::endl;
 						
 			/* --- END CLUSTER PASS ---*/			
 			
@@ -623,8 +621,7 @@ int main(int argc, char **argv) {
 			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);		
 			direct_vals.unbind();
 			glDepthMask(GL_TRUE);
-			glEnable(GL_DEPTH_TEST);
-			
+			glEnable(GL_DEPTH_TEST);			
 			
 			//render a parabolic map for each val
 			for (int i = 0; i < num_val_clusters; i++)
@@ -641,18 +638,15 @@ int main(int argc, char **argv) {
 				glm::mat4 val_lookat = glm::lookAt(valpos, valpos + (-norm), uu);
 				pView[i] = val_lookat;
 				
-				glCullFace(GL_FRONT);				
+				//glCullFace(GL_FRONT);				
 				do_parabolic_rsm(pView[i], parabolic_fbos[i], shader_table["parabolic rsm pass"],ism_w, ism_h, current_scene, ism_near, ism_far);
 				
 			}						
 			glViewport(0, 0, Wid, Hei);
-			glCullFace(GL_BACK);
-
+			//glCullFace(GL_BACK);
 			/* ------- END VAL SM PASS -------- */
-
-
-			/* ------- NEW SSVP PROPAGATION ------- */			
-		
+			
+			/* ------- NEW SSVP PROPAGATION ------- */		
 			if (first_frame)
 			{
 				//val_mats.upload_data(&pView);
@@ -663,7 +657,7 @@ int main(int argc, char **argv) {
 				//val_mats.set_binding_point(0);
 				for (int i = 0; i < num_val_clusters; i++)
 				{
-					compute_vpl_propagation(shader_table["ssvp"], pView, parabolic_fbos[i], parabolic_fbos, samplesTBO, 1.0f, 40.0f, VPL_SAMPLES, num_val_clusters, vpl_radius);
+					compute_vpl_propagation(shader_table["ssvp"], pView, parabolic_fbos[i], parabolic_fbos, samplesTBO, ism_near, ism_far, VPL_SAMPLES, num_val_clusters, vpl_radius);
 				}
 				backface_vpls.unbind();
 				backface_vpl_count.unbind();
@@ -671,8 +665,7 @@ int main(int argc, char **argv) {
 				//pass_vpl_count.unbind();
 				//val_mats.unbind();
 				first_frame = false;
-			}
-									
+			}									
 			
 			/*-----------Old SSVP-------------------*/
 
@@ -698,10 +691,11 @@ int main(int argc, char **argv) {
 			//for (int i = 0; i < VPL_SAMPLES; i++)
 			//{
 			//	std::cout << a[i].n.w << std::endl;
-			//}
-			
+			//}			
 
 			/* ---- shading -----*/
+			
+			val_mats.upload_data(pView.data());					
 
 			frustum_planes.bindBase(0);
 			lightSSBO.bindBase(1);
@@ -716,7 +710,7 @@ int main(int argc, char **argv) {
 			direct_vals.unbind();
 			backface_vpl_count.unbind();
 			backface_vpls.unbind();					
-
+			
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);			
 			blit.use();
 			GLCall(glActiveTexture(GL_TEXTURE0));

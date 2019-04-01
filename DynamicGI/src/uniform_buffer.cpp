@@ -5,8 +5,8 @@
 
 uniform_buffer::uniform_buffer(unsigned int sz) {
 	size = sz;
-	GLCall(glGenBuffers(1, &index));
-	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, index));
+	GLCall(glGenBuffers(1, &(this->index)));
+	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, (this->index)));
 	GLCall(glBufferData(GL_UNIFORM_BUFFER, size, NULL, GL_DYNAMIC_DRAW));
 	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, 0));
 	
@@ -24,7 +24,7 @@ void uniform_buffer::upload_data(const void* data) {
 }
 
 void uniform_buffer::bind() {
-	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, index));
+	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, (this->index)));
 }
 
 void uniform_buffer::unbind() {
@@ -32,6 +32,6 @@ void uniform_buffer::unbind() {
 }
 
 void uniform_buffer::set_binding_point(unsigned int b) {
-	GLCall(glBindBufferBase(GL_UNIFORM_BUFFER, b, index));
+	GLCall(glBindBufferBase(GL_UNIFORM_BUFFER, b, (this->index)));
 }
 

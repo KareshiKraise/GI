@@ -2,7 +2,7 @@
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
-
+#define NUM_CLUSTERS 4
 #define Wid 1280.0f
 #define Hei 720.0f
 
@@ -23,11 +23,11 @@ uniform mat4 invProj;
 uniform mat4 ViewMat;
 uniform mat4 lightSpaceMat;
 
-uniform mat4 parabolicMat1;
-uniform mat4 parabolicMat2;
-uniform mat4 parabolicMat3;
-uniform mat4 parabolicMat4;
+layout(std140, binding = 0) uniform vpl_matrices{
+	mat4 parabolic_mats[NUM_CLUSTERS];
+};
 
+//ism near - far
 uniform float near;
 uniform float far;
 
@@ -52,7 +52,6 @@ layout(std430, binding = 0) buffer frusta {
 	frustum f[];
 };
 
-
 struct plight {
 	vec4 p; //position + radius
 	vec4 n;
@@ -67,16 +66,6 @@ layout(std430, binding = 2) buffer direct_vals {
 	plight val_list[];
 };
 
-//vpls assigned to val
-//layout(std430, binding = 3) buffer vpls_per_val {
-//	unsigned int vpl_to_val[];
-//};
-//
-////num vpls_assigned to val
-//layout(std430, binding = 4) buffer count_vpl_per_val {
-//	unsigned int vpl_count[];
-//};
-
 layout(std430, binding = 3) buffer backface_vpls {
 	plight back_vpl_list[];
 };
@@ -84,8 +73,6 @@ layout(std430, binding = 3) buffer backface_vpls {
 layout(std430, binding = 4) buffer backface_vpl_count {
 	unsigned int back_vpl_count;
 };
-
-
 
 
 float projtoview(float depth)
@@ -149,16 +136,20 @@ float ParabolicShadow(vec4 worldPos, mat4 lightMV, sampler2D samp) {
 	vec4 lpos = lightMV * worldPos;
 	float L = length(lpos.xyz);
 	lpos /= L;
+	float ret = 0.0f;
 
 	float fdepth;
 	float fscene_depth;
-
+		
 	vec2 tex_coord;
-	tex_coord.x = (lpos.x / (1.0f + lpos.z))*0.5f + 0.5f;
-	tex_coord.y = (lpos.y / (1.0f + lpos.z))*0.5f + 0.5f;
-	fdepth = texture2D(samp, tex_coord).r;
+	tex_coord.x = (lpos.x / 2.*(1.0f + lpos.z)) + 0.5f;
+	tex_coord.y = (lpos.y / 2.*(1.0f + lpos.z)) + 0.5f;
+
 	fscene_depth = (L - near) / (far - near);
-	float ret = ( fscene_depth > (fdepth + EPSILON) ) ? 0.0f : 1.0f;
+
+	fdepth = texture2D(samp, tex_coord).r;
+	ret = ((fscene_depth + EPSILON) > fdepth) ? 0.0f : 1.0f;
+	
 	return ret;
 }
 
@@ -180,52 +171,28 @@ vec3 shade_point(plight light, vec3 ppos, vec3 pnormal, vec3 pcol)
 		
 	vec3 lightdir = normalize(light.p.xyz - ppos);
 		
+	float dist = length(ppos - light.p.xyz);
+
 	float atten = get_attenuation(light.p.w, length(ppos - light.p.xyz));
 	
 	vec3 ltop = normalize(light.p.xyz - ppos); //light to pos
 	vec3 ptol = normalize(ppos - light.p.xyz); //pos to light
-
-	//vec3 I = light.c.xyz * max(0.0, dot(light.n.xyz,ptol));
-	//vec3 E = kd * pcol * I *  atten; //*max(0.0, dot(pnormal, lightdir));
-
-	col = light.c.xyz * kd * max(0.1, dot(pnormal, lightdir)) * atten;
 	
+	col = light.c.xyz * kd * max(0.0, dot(pnormal, lightdir)) * atten ;
 
 	return col;
 }
-
-vec3 doPointLight(plight light, vec3 ppos, vec3 pnormal, vec3 pcol) {
-	vec3 col = vec3(0.0, 0.0, 0.0);
-	
-	vec3 vToLight = light.p.xyz - ppos;
-	vec3 vLightDir = normalize(vToLight);
-	float fLightDistance = length(vToLight);
-	
-	float fRad = light.p.w;
-	
-	if (fLightDistance < fRad )	{
-		
-		vec3 LightColor = light.c.xyz;
-		float x = fLightDistance / fRad;
-		float fFalloff = -0.05 + 1.05/(1 + 21*x*x);
-		col = LightColor * clamp(dot(vLightDir, pnormal),0.2, 1.0) * fFalloff *kd;
-		
-		return col;
-	}
-	
-	return col;
-}
-
 
 //left <-> right ;; bottom - top
 
-#define MAX_LIGHTS 256
+#define MAX_LIGHTS 512
+
 shared uint minDepth;
 shared uint maxDepth;
 shared uint lightCount;
 shared uint lightIdx[MAX_LIGHTS];
 
-#define MAX_BACK_LIGHTS 256
+#define MAX_BACK_LIGHTS 512
 shared uint backLightCount;
 shared uint backLightIdx[MAX_BACK_LIGHTS];
 
@@ -352,14 +319,14 @@ void main(void){
 	vec3 eyeDir = normalize(ppos - eyePos);
 	float spec = 0.0f;
 	vec3 half_v = normalize(sun_Dir + eyeDir);
-	spec = pow(max(dot(pnormal, half_v), 0.0), 16);	
+	spec = pow(max(dot(pnormal, half_v), 0.0), 32);	
 	vec3 glossy = vec3(spec) * spec_c;
 	
 	vec4 pos_lightspace = lightSpaceMat * vec4(mpos.xyz, 1.0);
 	float shadow = DirectionalShadow(pos_lightspace, pnormal);
+	vec3 diffuse = vec3(diff);
+	vec3 lighting = (shadow * (glossy + diffuse)) * palbedo;
 	
-	vec3 lighting = ((shadow) * (glossy + vec3(diff))) * palbedo;
-		
 	col += vec4(lighting, 1.0);	
 	
 	//VPL shading
@@ -367,28 +334,28 @@ void main(void){
 	{
 		uint idx = lightIdx[i];
 		plight l = list[idx];
-		//color accumulation
-		//col += vec4(shade_point(l, ppos, pnormal, palbedo), 0.0);
-		float ret;
+		
+		float ret = 0;
 		if (l.n.w == 0)
-		{
-			ret = ParabolicShadow(mpos, parabolicMat1, pShadowMap1);
+		{			
+			ret = ParabolicShadow(mpos, parabolic_mats[0], pShadowMap1);
 		}
 		if (l.n.w == 1)
-		{
-			ret = ParabolicShadow(mpos, parabolicMat2, pShadowMap2);
+		{			
+			ret = ParabolicShadow(mpos, parabolic_mats[1], pShadowMap2);
 		}
 		if (l.n.w == 2)
-		{
-			ret = ParabolicShadow(mpos, parabolicMat3, pShadowMap3);
+		{			
+			ret = ParabolicShadow(mpos, parabolic_mats[2], pShadowMap3);
 		}
 		if (l.n.w == 3)
 		{
-			ret = ParabolicShadow(mpos, parabolicMat4, pShadowMap4);
+			ret = ParabolicShadow(mpos, parabolic_mats[3], pShadowMap4);
 		}		
-		col += ret *vec4(shade_point(l, ppos, pnormal, palbedo), 0.0);
 		
+		col += ret * vec4(shade_point(l, ppos, pnormal, palbedo), 0.0);		
 	}
+
 	if (double_bounce == true)
 	{
 		for (uint i = 0; i < backLightCount; ++i)
@@ -398,8 +365,9 @@ void main(void){
 			col += vec4(shade_point(l, ppos, pnormal, palbedo), 0.0);
 		}
 	}
-	col *= flux;
-	
+
+	col *= vec4(palbedo, 1.0);
+		
 	barrier();	
 	memoryBarrierShared();
 

@@ -8,11 +8,9 @@ enum class fbo_type {
 	RSM = 0X02,
 	G_BUFFER = 0X03,
 	DEEP_G_BUFFER = 0X04,
-	RADIOSITY_PARAM = 0x05,
-	COLOR_BUFFER = 0X06,  //general purpose single render target albedo buffer
-	G_BUFFER_V2 = 0X07,
-	CUBE_MAP = 0X08,
-	INDIRECT = 0X09
+	RADIOSITY_PARAM = 0x05,	
+	G_BUFFER_V2 = 0X06,
+	CUBE_MAP = 0X07	
 };
 
 class framebuffer {
@@ -35,14 +33,13 @@ public:
 	void bind();
 
 	void set_stencil_pass();
-	void set_geometry_pass();
-	void set_intermediate_pass();
-
+	
 	//generic unbind
 	void unbind();
 	
 private:
 	 
+	
 	bool gen_cube_map();
 	bool gen_radiosity();
 	bool gen_shadow_map_fb(); 
@@ -50,9 +47,9 @@ private:
 	bool gen_g_buffer_v2(); //deferred light volumes gbuffer
 	bool gen_rsm();
 	void gen_depth_renderbuffer(); //renderbuffer for standard gbuffers
-	bool gen_dgbuffer();
-	bool gen_indirect_buffer();
+	bool gen_dgbuffer();	
 	void gen_depth_stencil_renderbuffer();
 	void gen_depth_texture();
+
 };
 

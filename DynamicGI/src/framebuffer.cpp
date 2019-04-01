@@ -49,15 +49,7 @@ framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 
 		layers = l;
 		if (gen_radiosity())
 			std::cout << " radiosity fbo complete" << std::endl;
-	}
-	else if (type == fbo_type::COLOR_BUFFER) {
-		fb_type = type;
-		w_res = w;
-		h_res = h;
-		layers = l;
-		if (gen_indirect_buffer())
-			std::cout << " indirect lighting fbo complete" << std::endl;
-	}
+	}	
 	else if (type == fbo_type::G_BUFFER_V2) {
 		fb_type = type;
 		w_res = w;
@@ -74,14 +66,8 @@ framebuffer::framebuffer(fbo_type type, unsigned int w = 1024, unsigned int h = 
 		if (gen_cube_map())
 			std::cout << "cube map fbo complete" << std::endl;
 	}
-	else if (type == fbo_type::INDIRECT) {
-		fb_type = type;
-		w_res = w;
-		h_res = h;
-		layers = l;
-		if (gen_indirect_buffer())
-			std::cout << "cube map fbo complete" << std::endl;
-	}
+	
+	
 }
 
 void framebuffer::bind() {
@@ -99,22 +85,7 @@ void framebuffer::set_stencil_pass() {
 	}
 }
 
-//sets drawbuffer as the intermediate texture , collor attachment 4 meant for gbuffer v2
-void framebuffer::set_intermediate_pass() {	
-	if (fbo) {
-		GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT4));
-		has_drawbuffer = true;
-	}
-}
 
-//sets drawbuffer as the gbuffer textures , collor attachments 1,2 and 3 for gbuffer v2
-void framebuffer::set_geometry_pass() {
-	if (fbo) {
-		unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
-		glDrawBuffers(3, attachments);
-		has_drawbuffer = true;		
-	}
-}
 
 void framebuffer::unbind() {
 	if (fbo) {
@@ -518,29 +489,6 @@ bool framebuffer::gen_radiosity() {
 
 }
 
-bool framebuffer::gen_indirect_buffer() {
-	bind();
 
-	GLCall(glGenTextures(1, &albedo));
-	GLCall(glBindTexture(GL_TEXTURE_2D, albedo));
-	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w_res, h_res, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-	float border_col[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	GLCall(glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_col));
 
-	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, albedo, 0));
 
-	glDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-	this->has_drawbuffer = true;
-
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		std::cout << "indirect lighting framebuffer incomplete" << std::endl;
-		return false;
-	}
-	unbind();
-	return true;
-}

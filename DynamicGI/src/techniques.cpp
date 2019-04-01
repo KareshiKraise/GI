@@ -183,7 +183,9 @@ void fill_lightSSBO(const framebuffer& buffer, const glm::mat4& view, Shader& ss
 	ssbo.unbind();
 }
 
-void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& rsm_buffer, GLuint draw_tex, glm::mat4& invProj, scene& sponza, shadow_data& shadowmap, int numVPL, int numVAL, shader_storage_buffer& lightSSBO, float Wid, float Hei, float near, float far, const std::vector<glm::mat4>& pView, const std::vector<framebuffer>& pfbo, bool see_bounce) {
+void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& rsm_buffer, GLuint draw_tex, glm::mat4& invProj, 
+	scene& sponza, shadow_data& shadowmap, int numVPL, int numVAL, shader_storage_buffer& lightSSBO, float Wid, float Hei, 
+	float near, float far, const std::vector<glm::mat4>& pView, const std::vector<framebuffer>& pfbo, bool see_bounce) {
 
 	tiled_shading.use();
 
@@ -222,15 +224,12 @@ void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& 
 	GLCall(glActiveTexture(GL_TEXTURE8));
 	GLCall(glBindTexture(GL_TEXTURE_2D, pfbo[3].depth_map));
 	tiled_shading.setInt("pShadowMap4", 8);
-
+	
 	GLCall(glBindImageTexture(0, draw_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F));
 	tiled_shading.setMat4("invProj", invProj);
 	tiled_shading.setMat4("ViewMat", sponza.camera->GetViewMatrix());
 	tiled_shading.setMat4("lightSpaceMat", shadowmap.light_space_mat);
-	tiled_shading.setMat4("parabolicMat1", pView[0]);
-	tiled_shading.setMat4("parabolicMat2", pView[1]);
-	tiled_shading.setMat4("parabolicMat3", pView[2]);
-	tiled_shading.setMat4("parabolicMat4", pView[3]);
+	
 	tiled_shading.setVec3("sun_Dir", shadowmap.lightDir);
 	tiled_shading.setVec3("eyePos", sponza.camera->Position);
 	tiled_shading.setInt("num_vpls", numVPL);
@@ -362,122 +361,12 @@ void compute_vpl_propagation(Shader& ssvp, const std::vector<glm::mat4>& pView, 
 	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
 }
 
-void create_sphere_vao(GLuint& sphereVAO, GLuint& sphereVBO, GLuint& sphereIBO, GLuint& instanceVBO, Model& sphere, std::vector<glm::vec2>& samples) {
-	GLCall(glGenVertexArrays(1, &sphereVAO));
-	GLCall(glGenBuffers(1, &sphereVBO));
-	GLCall(glGenBuffers(1, &sphereIBO));
 
-	GLCall(glBindVertexArray(sphereVAO));
-	int size = 0;
-	GLCall(glBindBuffer(GL_ARRAY_BUFFER, sphereVBO));
-	size = sphere.get_verts().size() * sizeof(vertex);
-	GLCall(glBufferData(GL_ARRAY_BUFFER, size, sphere.get_verts().data(), GL_STATIC_DRAW));
-
-	GLCall(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereIBO));
-	size = sphere.get_indices().size() * sizeof(unsigned int);
-	GLCall(glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, sphere.get_indices().data(), GL_STATIC_DRAW));
-
-	GLCall(glEnableVertexAttribArray(0));
-	GLCall(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)0));
-
-	GLCall(glEnableVertexAttribArray(1));
-	GLCall(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, uv)));
-
-	GLCall(glEnableVertexAttribArray(2));
-	GLCall(glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)offsetof(vertex, normal)));
-	GLCall(glBindVertexArray(0));
-
-	GLCall(glGenBuffers(1, &instanceVBO));
-	GLCall(glBindBuffer(GL_ARRAY_BUFFER, instanceVBO));
-	GLCall(glBufferData(GL_ARRAY_BUFFER, samples.size() * sizeof(glm::vec2), samples.data(), GL_STATIC_DRAW));
-	GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
-
-	GLCall(glBindVertexArray(sphereVAO));
-	GLCall(glEnableVertexAttribArray(3));
-	GLCall(glBindBuffer(GL_ARRAY_BUFFER, instanceVBO));
-	GLCall(glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0));
-	GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
-	GLCall(glVertexAttribDivisor(3, 1));
-	GLCall(glBindVertexArray(0));
-}
-
-void draw_stenciled_spheres(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sphere_scene, Model& sphere, Shader& sphereShader, GLuint sphereVAO, glm::vec3& mid, glm::vec2& coord) {
-	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	sphereShader.use();
-
-	glActiveTexture(GL_TEXTURE0);
-	sphereShader.setInt("rsmposition", 0);
-	glBindTexture(GL_TEXTURE_2D, rsm_buffer.pos);
-
-	glActiveTexture(GL_TEXTURE1);
-	sphereShader.setInt("rsmnormal", 1);
-	glBindTexture(GL_TEXTURE_2D, rsm_buffer.normal);
-
-	glActiveTexture(GL_TEXTURE2);
-	sphereShader.setInt("rsmflux", 2);
-	glBindTexture(GL_TEXTURE_2D, rsm_buffer.albedo);
-
-	glActiveTexture(GL_TEXTURE3);
-	sphereShader.setInt("gposition", 3);
-	glBindTexture(GL_TEXTURE_2D, gbuffer.pos);
-
-	glActiveTexture(GL_TEXTURE4);
-	sphereShader.setInt("gnormal", 4);
-	glBindTexture(GL_TEXTURE_2D, gbuffer.normal);
-
-	glActiveTexture(GL_TEXTURE5);
-	sphereShader.setInt("galbedo", 5);
-	glBindTexture(GL_TEXTURE_2D, gbuffer.albedo);
-
-	sphereShader.setMat4("P", sphere_scene.proj);
-	sphereShader.setMat4("V", sphere_scene.view);
-
-	sphereShader.setVec2("Coords", coord);
-
-	glm::mat4 mod = glm::scale(glm::mat4(1.0), glm::vec3(1.0, 1.0, 1.0));
-	glm::translate(mod, -mid);
-
-	sphereShader.setMat4("M", mod);
-
-	GLCall(glBindVertexArray(sphereVAO));
-	GLCall(glDrawElementsInstanced(GL_TRIANGLES, sphere.get_indices().size(), GL_UNSIGNED_INT, 0, VPL_SAMPLES));
-}
-
-//stencil 1
-void do_stencil_pass(framebuffer& gbuffer, framebuffer& rsm_buffer,  scene& sponza, Shader& stencil_pass, GLuint sphereVAO,  glm::vec3& sphere_mid,  glm::vec2& dims, Model& sphere) {
-	glEnable(GL_STENCIL_TEST);	
-	gbuffer.set_stencil_pass();
-	glEnable(GL_DEPTH_TEST);
-	glDisable(GL_CULL_FACE);
-	glClear(GL_STENCIL_BUFFER_BIT);
-	glStencilFunc(GL_ALWAYS, 0, 0);			
-	glStencilOpSeparate(GL_BACK, GL_KEEP, GL_INCR_WRAP, GL_KEEP);
-	glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_DECR_WRAP, GL_KEEP);	
-	draw_stenciled_spheres(gbuffer, rsm_buffer, sponza, sphere, stencil_pass, sphereVAO, sphere_mid, dims);	
-}
-
-//stencil 2
-void do_stencil_sphere_draw(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sponza, Model& sphere, Shader& sphere_shader, GLuint sphereVAO, glm::vec3& sphere_mid, float Wid, float Hei )
-{
-	gbuffer.set_intermediate_pass();
-	glStencilFunc(GL_NOTEQUAL, 0, 0xFF);
-	glDisable(GL_DEPTH_TEST);			
-	glEnable(GL_BLEND);
-	glBlendEquation(GL_FUNC_ADD);
-	glBlendFunc(GL_ONE, GL_ONE);
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_FRONT);
-	draw_spheres(gbuffer, rsm_buffer, sponza, sphere, sphere_shader, sphereVAO, sphere_mid, glm::vec2(Wid, Hei));
-	glCullFace(GL_BACK);
-	glDisable(GL_BLEND);
-	glDisable(GL_STENCIL_TEST);			
-}
 
 //stencil 3
 void do_directional_pass(framebuffer& gbuffer, Shader& dLightProgram, shadow_data& shadowmap, scene& sponza, framebuffer& depthBuffer, quad& screen_quad)
 {
-	gbuffer.set_intermediate_pass();
+	//gbuffer.set_intermediate_pass();
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendEquation(GL_FUNC_ADD);
@@ -619,4 +508,48 @@ void do_parabolic_rsm(const glm::mat4& View, framebuffer& parabolic_sm, Shader& 
 	parabolic_map.setFloat("far", f);
 	sponza.mesh->Draw(parabolic_map);
 	parabolic_sm.unbind();
+}
+
+
+
+void generate_vals(Shader& gen_vals, const framebuffer& rsm_buffer, GLuint val_sample_tbo, int num_vpls, int num_clusters) {
+	gen_vals.use();
+	GLCall(glActiveTexture(GL_TEXTURE0));
+	GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.pos));
+	gen_vals.setInt("rsm_position", 0);
+	GLCall(glActiveTexture(GL_TEXTURE1));
+	GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.normal));
+	gen_vals.setInt("rsm_normal", 1);
+	GLCall(glActiveTexture(GL_TEXTURE2));
+	GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.albedo));
+	gen_vals.setInt("rsm_flux", 2);
+
+	gen_vals.setInt("num_vpls", num_vpls);
+	gen_vals.setInt("num_clusters", num_clusters);
+
+	GLCall(glBindImageTexture(0, val_sample_tbo, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG32F));
+	
+	GLCall(glDispatchCompute(1, 1, 1));
+	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+	
+}
+
+
+void calc_distance_to_val(Shader& clusterize_vals, int num_val_clusters, int num_vpls, bool first_pass)
+{
+	clusterize_vals.use();
+	clusterize_vals.setInt("num_vals", num_val_clusters);
+	clusterize_vals.setInt("vpl_samples", num_vpls);
+	clusterize_vals.setInt("first_cluster_pass", first_pass);
+	GLCall(glDispatchCompute(1, 1, 1));
+	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+}
+
+//update vals
+void update_cluster_centers(Shader& update_vals, int num_vpls)
+{
+	update_vals.use();
+	update_vals.setInt("vpl_samples", num_vpls);
+	GLCall(glDispatchCompute(1, 1, 1));
+	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
 }
