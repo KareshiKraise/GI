@@ -13,10 +13,12 @@ layout(binding = 3) uniform sampler2D depthBuffer;
 
 layout(binding = 4) uniform sampler2D shadow_map;
 
-layout(binding = 5) uniform sampler2D pShadowMap1;
-layout(binding = 6) uniform sampler2D pShadowMap2;
-layout(binding = 7) uniform sampler2D pShadowMap3;
-layout(binding = 8) uniform sampler2D pShadowMap4;
+layout(binding = 5) uniform sampler2DArray val_shadowmaps;
+
+//layout(binding = 5) uniform sampler2D pShadowMap1;
+//layout(binding = 6) uniform sampler2D pShadowMap2;
+//layout(binding = 7) uniform sampler2D pShadowMap3;
+//layout(binding = 8) uniform sampler2D pShadowMap4;
 
 uniform mat4 P;
 uniform mat4 invProj;
@@ -131,7 +133,7 @@ float DirectionalShadow(vec4 fragPosLS, vec3 norm) {
 }
 
 #define EPSILON 0.05f
-float ParabolicShadow(vec4 worldPos, mat4 lightMV, sampler2D samp) {
+float ParabolicShadow(vec4 worldPos, mat4 lightMV, float layer) {
 
 	vec4 lpos = lightMV * worldPos;
 	float L = length(lpos.xyz);
@@ -147,7 +149,7 @@ float ParabolicShadow(vec4 worldPos, mat4 lightMV, sampler2D samp) {
 
 	fscene_depth = (L - near) / (far - near);
 
-	fdepth = texture2D(samp, tex_coord).r;
+	fdepth = texture(val_shadowmaps, vec3(tex_coord, layer)).r;
 	ret = ((fscene_depth + EPSILON) > fdepth) ? 0.0f : 1.0f;
 	
 	return ret;
@@ -334,24 +336,27 @@ void main(void){
 	{
 		uint idx = lightIdx[i];
 		plight l = list[idx];
-		
+
 		float ret = 0;
-		if (l.n.w == 0)
-		{			
-			ret = ParabolicShadow(mpos, parabolic_mats[0], pShadowMap1);
-		}
-		if (l.n.w == 1)
-		{			
-			ret = ParabolicShadow(mpos, parabolic_mats[1], pShadowMap2);
-		}
-		if (l.n.w == 2)
-		{			
-			ret = ParabolicShadow(mpos, parabolic_mats[2], pShadowMap3);
-		}
-		if (l.n.w == 3)
-		{
-			ret = ParabolicShadow(mpos, parabolic_mats[3], pShadowMap4);
-		}		
+		float layer = l.n.w;
+		ret = ParabolicShadow(mpos, parabolic_mats[int(layer)], layer);
+
+		//if (l.n.w == 0)
+		//{			
+		//	ret = ParabolicShadow(mpos, parabolic_mats[0], pShadowMap1);	
+		//}
+		//if (l.n.w == 1)
+		//{			
+		//	ret = ParabolicShadow(mpos, parabolic_mats[1], pShadowMap2);
+		//}
+		//if (l.n.w == 2)
+		//{			
+		//	ret = ParabolicShadow(mpos, parabolic_mats[2], pShadowMap3);
+		//}
+		//if (l.n.w == 3)
+		//{
+		//	ret = ParabolicShadow(mpos, parabolic_mats[3], pShadowMap4);
+		//}		
 		
 		col += ret * vec4(shade_point(l, ppos, pnormal, palbedo), 0.0);		
 	}

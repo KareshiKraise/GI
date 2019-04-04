@@ -4,6 +4,7 @@
 const float PI = 3.1415926f;
 const float PI_TWO = 6.2831853;
 int VPL_SAMPLES = 8 * 8; //number of lights
+int num_val_clusters = 4;
 
 //scene and model paths
 const char* sponza_path = "models/sponza/sponza.obj";
@@ -25,10 +26,13 @@ enum view_mode {
 	NUM_MODES
 };
 
+
+
 /*---camera controls---*/
 double lastX = 0, lastY = 0;
 bool active_cam = true;
 int current_view = 0;
+int current_layer = 0;
 bool view_vpls = false;
 bool debug_view = false;
 bool view_parabolic = false;
@@ -142,7 +146,7 @@ int main(int argc, char **argv) {
 	float ism_near;
 	float ism_far;
 
-	int num_val_clusters;
+	
 	float vpl_radius;
 
 
@@ -274,6 +278,10 @@ int main(int argc, char **argv) {
 	Shader sponza_shadow_map("shaders/shadow_map_vert.glsl", "shaders/shadow_map_frag.glsl");
 	Shader sponza_parabolic_map("shaders/parabolic_map_vert.glsl", "shaders/parabolic_map_frag.glsl");
 
+	//generic 
+	Shader view_layered("shaders/screen_quad_vert.glsl", "shaders/view_layered_frag.glsl");
+	Shader layered_val_shadowmap("shaders/layered_parabolic_view_vert.glsl", "shaders/layered_parabolic_view_frag.glsl", "shaders/layered_parabolic_view_geom.glsl");
+
 	/* ---- COMPUTE SHADERS ---- */
 	Shader gen_frustum(nullptr, nullptr, nullptr, "shaders/gen_frustum.glsl");
 	Shader gen_light_buffer(nullptr, nullptr, nullptr, "shaders/gen_light_ssbo.glsl");
@@ -286,6 +294,7 @@ int main(int argc, char **argv) {
 	Shader generate_final_buffer(nullptr, nullptr, nullptr, "shaders/generate_final_light_buffer.glsl");
 	Shader second_bounce_program("shaders/ssbo_debug_draw_vert.glsl", "shaders/count_second_bounce_vpls_frag.glsl");
 	Shader recompute_bounce(nullptr, nullptr, nullptr, "shaders/recompute_second_bounce.glsl");
+	
 	
 	/*----SHADOW MAP DEBUG VIEW -----*/
 	Shader depthView("shaders/screen_quad_vert.glsl", "shaders/depth_view_frag.glsl", nullptr);
@@ -344,6 +353,10 @@ int main(int argc, char **argv) {
 		parabolic_fbos[i] = framebuffer(fbo_type::RSM, ism_w, ism_h, 0);
 	}
 	
+	//val visibility fbo and matrices
+	framebuffer val_array_fbo(fbo_type::DEEP_G_BUFFER, ism_w, ism_h, num_val_clusters);
+	std::vector<glm::mat4> pView(num_val_clusters);
+
 	//ALL SSBO DECLARATIONS
 	
 	/*----FILL SSBO WITH LIGHTS ----*/
@@ -369,7 +382,7 @@ int main(int argc, char **argv) {
 	shader_storage_buffer count_vpl_per_val(sizeof(unsigned int)  * num_val_clusters);
 	shader_storage_buffer pass_vpl_count(sizeof(unsigned int));
 
-	int num_back_samples = 256;
+	int num_back_samples = VPL_SAMPLES * num_val_clusters;
 	shader_storage_buffer backface_vpls(sizeof(point_light)*num_back_samples);
 	shader_storage_buffer backface_vpl_count(sizeof(unsigned int));
 	unsigned int count = 0;
@@ -539,7 +552,7 @@ int main(int argc, char **argv) {
 	//Tile Frustum generation decoupled from tiled frustum culling pass
 	generate_tile_frustum(gen_frustum, frustum_planes, Wid, Hei, invProj);		
 		
-	std::vector<glm::mat4> pView(num_val_clusters);
+	
 
 	
 
@@ -636,17 +649,23 @@ int main(int argc, char **argv) {
 				glm::vec3 uu = glm::normalize(glm::vec3(1.0 - norm.x * norm.x * ka, ks*kb, -ks * norm.x));
 				glm::vec3 vv = glm::normalize(glm::vec3(kb, ks - norm.y * norm.y * ka * ks, -norm.y));
 				glm::mat4 val_lookat = glm::lookAt(valpos, valpos + (-norm), uu);
-				pView[i] = val_lookat;
+				pView[i] = val_lookat;	
 				
-				//glCullFace(GL_FRONT);				
-				do_parabolic_rsm(pView[i], parabolic_fbos[i], shader_table["parabolic rsm pass"],ism_w, ism_h, current_scene, ism_near, ism_far);
-				
-			}						
+				//glCullFace(GL_FRONT);			
+				//do_parabolic_rsm(pView[i], parabolic_fbos[i], shader_table["parabolic rsm pass"], ism_w, ism_h, current_scene, ism_near, ism_far);				
+			}		
+			
+			val_mats.upload_data(pView.data());					
+			
+			//render clusters dynamically	
+			glViewport(0, 0, ism_w, ism_h);
+			render_cluster_shadow_map(layered_val_shadowmap, val_array_fbo, ism_near, ism_far, current_scene, num_val_clusters);						
 			glViewport(0, 0, Wid, Hei);
-			//glCullFace(GL_BACK);
 			/* ------- END VAL SM PASS -------- */
 			
-			/* ------- NEW SSVP PROPAGATION ------- */		
+
+			/* ------- NEW SSVP PROPAGATION ------- */	
+			//TODO - FIX PROPAGATION WITH TEXTURE ARRAYS
 			if (first_frame)
 			{
 				//val_mats.upload_data(&pView);
@@ -655,29 +674,37 @@ int main(int argc, char **argv) {
 				//direct_vals.bindBase(2);
 				//pass_vpl_count.bindBase(3);
 				//val_mats.set_binding_point(0);
-				for (int i = 0; i < num_val_clusters; i++)
-				{
-					compute_vpl_propagation(shader_table["ssvp"], pView, parabolic_fbos[i], parabolic_fbos, samplesTBO, ism_near, ism_far, VPL_SAMPLES, num_val_clusters, vpl_radius);
-				}
+
+				compute_vpl_propagation(shader_table["ssvp"], pView, val_array_fbo, parabolic_fbos, samplesTBO, ism_near, ism_far, VPL_SAMPLES, num_val_clusters, vpl_radius);
+				
 				backface_vpls.unbind();
 				backface_vpl_count.unbind();
 				//direct_vals.unbind();
 				//pass_vpl_count.unbind();
 				//val_mats.unbind();
 				first_frame = false;
-			}									
+			}						
+
+			backface_vpl_count.bind();
+			unsigned int *test = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+			backface_vpl_count.unbind();
+			//for(int i =0; i < num_val_clusters; i++)
+				std::cout << "num vpls in backface " << *test << std::endl;
 			
-			/*-----------Old SSVP-------------------*/
+			
 
 			/*---- GENERATING FINAL ITERATION BUFFER --- */
 			direct_vals.bindBase(0);
 			lightSSBO.bindBase(1);
 			vpls_per_val.bindBase(2);
-			count_vpl_per_val.bindBase(3);			
+			count_vpl_per_val.bindBase(3);		
+
 			generate_final_buffer.use();
 			generate_final_buffer.setInt("num_vpls", VPL_SAMPLES);
 			GLCall(glDispatchCompute(1, 1, 1));
 			GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+
 			direct_vals.unbind();
 			lightSSBO.unbind();
 			vpls_per_val.unbind();
@@ -694,16 +721,14 @@ int main(int argc, char **argv) {
 			//}			
 
 			/* ---- shading -----*/
-			
-			val_mats.upload_data(pView.data());					
-
+					
 			frustum_planes.bindBase(0);
 			lightSSBO.bindBase(1);
 			direct_vals.bindBase(2);	
 			backface_vpls.bindBase(3);
 			backface_vpl_count.bindBase(4);			
 			
-			do_tiled_shading(shader_table["tiled shading"], gbuffer, rsm_buffer, draw_tex, invProj, current_scene, light_data, VPL_SAMPLES, num_val_clusters, lightSSBO, Wid, Hei, ism_near, ism_far, pView, parabolic_fbos, see_bounce);
+			do_tiled_shading(shader_table["tiled shading"], gbuffer, rsm_buffer, draw_tex, invProj, current_scene, light_data, VPL_SAMPLES, num_val_clusters, lightSSBO, Wid, Hei, ism_near, ism_far, pView, val_array_fbo, see_bounce);
 			
 			frustum_planes.unbind();			
 			lightSSBO.unbind();		
@@ -725,7 +750,6 @@ int main(int argc, char **argv) {
 		
 			if (view_vpls)
 			{
-
 				glEnable(GL_DEPTH_TEST);
 												
 				GLCall(glBindVertexArray(lightvao));
@@ -769,7 +793,32 @@ int main(int argc, char **argv) {
 			
 		}
 		else if(current_view == PARABOLIC) {
-			render_debug_view(w, shader_table["view depth"], screen_quad, light_data, parabolic_fbos[0]);
+			
+			glViewport(0, 0, w.Wid, w.Hei);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			view_layered.use();
+			view_layered.setFloat("near", ism_near);
+			view_layered.setFloat("far", ism_far);
+			view_layered.setInt("layer", current_layer);
+
+			GLCall(glActiveTexture(GL_TEXTURE0));
+			view_layered.setInt("val_pos", 0);
+			GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, val_array_fbo.pos));
+
+			GLCall(glActiveTexture(GL_TEXTURE1));
+			view_layered.setInt("val_normal", 1);
+			GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, val_array_fbo.normal));
+
+			GLCall(glActiveTexture(GL_TEXTURE2));
+			view_layered.setInt("val_color", 2);
+			GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, val_array_fbo.albedo));
+			
+			GLCall(glActiveTexture(GL_TEXTURE3));
+			view_layered.setInt("val_depth", 3);
+			GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, val_array_fbo.depth_map));
+
+			screen_quad.renderQuad();
+
 		}
 		
 		//delta time and gui frametime renderer;
@@ -865,8 +914,10 @@ void kbfunc(GLFWwindow* window, int key, int scan, int action, int mods) {
 		see_bounce = !see_bounce;
 	}
 
-	if (key == GLFW_KEY_0 && (action == GLFW_PRESS)) {
-		
+	if (key == GLFW_KEY_L && (action == GLFW_PRESS)) {
+		current_layer++;
+		current_layer = current_layer % num_val_clusters;
+		std::cout << "current_layer " << current_layer << std::endl;
 	}
 
 	 

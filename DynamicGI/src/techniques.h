@@ -121,7 +121,7 @@ void blur_pass(quad& screen, unsigned int source_id, Shader& blur_program, frame
 
 void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& rsm_buffer, GLuint draw_tex, glm::mat4& invProj, scene& sponza, 
 	shadow_data& shadowmap, int numVPL, int numVAL ,shader_storage_buffer& lightSSBO, float Wid, float Hei, 
-	float near, float far, const std::vector<glm::mat4>& pView, const std::vector<framebuffer>& pfbo, bool see_bounce);
+	float near, float far, const std::vector<glm::mat4>& pView, const framebuffer& pfbo, bool see_bounce);
 
 void do_parabolic_map(const glm::mat4& parabolicModelView, framebuffer& parabolic_sm, Shader& parabolic_map, float ism_w, float ism_h, scene& sponza);
 
@@ -132,3 +132,5 @@ void generate_vals(Shader& gen_vals, const framebuffer& rsm_buffer, GLuint val_s
 void calc_distance_to_val(Shader& clusterize_vals, int num_val_clusters, int num_vpls, bool first_pass);
 
 void update_cluster_centers(Shader& update_vals, int num_vpls);
+
+void render_cluster_shadow_map(Shader& val_shadowmap, framebuffer& fb, float ism_near, float ism_far, const scene& s, int num_clusters);

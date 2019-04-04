@@ -185,7 +185,7 @@ void fill_lightSSBO(const framebuffer& buffer, const glm::mat4& view, Shader& ss
 
 void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& rsm_buffer, GLuint draw_tex, glm::mat4& invProj, 
 	scene& sponza, shadow_data& shadowmap, int numVPL, int numVAL, shader_storage_buffer& lightSSBO, float Wid, float Hei, 
-	float near, float far, const std::vector<glm::mat4>& pView, const std::vector<framebuffer>& pfbo, bool see_bounce) {
+	float near, float far, const std::vector<glm::mat4>& pView, const framebuffer& pfbo, bool see_bounce) {
 
 	tiled_shading.use();
 
@@ -210,20 +210,24 @@ void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& 
 	tiled_shading.setInt("shadow_map", 4);
 
 	GLCall(glActiveTexture(GL_TEXTURE5));
-	GLCall(glBindTexture(GL_TEXTURE_2D, pfbo[0].depth_map));
-	tiled_shading.setInt("pShadowMap1", 5);
+	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, pfbo.depth_map));
+	tiled_shading.setInt("val_shadowmaps", 5);
 
-	GLCall(glActiveTexture(GL_TEXTURE6));
-	GLCall(glBindTexture(GL_TEXTURE_2D, pfbo[1].depth_map));
-	tiled_shading.setInt("pShadowMap2", 6);
-
-	GLCall(glActiveTexture(GL_TEXTURE7));
-	GLCall(glBindTexture(GL_TEXTURE_2D, pfbo[2].depth_map));
-	tiled_shading.setInt("pShadowMap3", 7);
-
-	GLCall(glActiveTexture(GL_TEXTURE8));
-	GLCall(glBindTexture(GL_TEXTURE_2D, pfbo[3].depth_map));
-	tiled_shading.setInt("pShadowMap4", 8);
+	//GLCall(glActiveTexture(GL_TEXTURE5));
+	//GLCall(glBindTexture(GL_TEXTURE_2D, pfbo[0].depth_map));
+	//tiled_shading.setInt("pShadowMap1", 5);
+	//
+	//GLCall(glActiveTexture(GL_TEXTURE6));
+	//GLCall(glBindTexture(GL_TEXTURE_2D, pfbo[1].depth_map));
+	//tiled_shading.setInt("pShadowMap2", 6);
+	//
+	//GLCall(glActiveTexture(GL_TEXTURE7));
+	//GLCall(glBindTexture(GL_TEXTURE_2D, pfbo[2].depth_map));
+	//tiled_shading.setInt("pShadowMap3", 7);
+	//
+	//GLCall(glActiveTexture(GL_TEXTURE8));
+	//GLCall(glBindTexture(GL_TEXTURE_2D, pfbo[3].depth_map));
+	//tiled_shading.setInt("pShadowMap4", 8);
 	
 	GLCall(glBindImageTexture(0, draw_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F));
 	tiled_shading.setMat4("invProj", invProj);
@@ -320,43 +324,25 @@ void compute_vpl_propagation(Shader& ssvp, const std::vector<glm::mat4>& pView, 
 	ssvp.use();
 	
 	//vpl near and far planes
-	//ssvp.setFloat("near", near);
-	//ssvp.setFloat("far", far);
-	//ssvp.setInt("num_vals", num_VALs);
-	//
-	//ssvp.setMat4("pMat1", pView[0]);
-	//ssvp.setMat4("pMat2", pView[1]);
-	//ssvp.setMat4("pMat3", pView[2]);
-	//ssvp.setMat4("pMat4", pView[3]);
+	ssvp.setFloat("near", near);
+	ssvp.setFloat("far", far);
+	ssvp.setInt("num_vals", num_VALs);	
 	
 	GLCall(glBindImageTexture(0, samplesTBO, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG32F));
 
 	GLCall(glActiveTexture(GL_TEXTURE0));
-	GLCall(glBindTexture(GL_TEXTURE_2D, gbackbuffer.pos));
+	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, gbackbuffer.pos));
 	ssvp.setInt("prsm_pos", 0);
 	GLCall(glActiveTexture(GL_TEXTURE1));
-	GLCall(glBindTexture(GL_TEXTURE_2D, gbackbuffer.normal));
+	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, gbackbuffer.normal));
 	ssvp.setInt("prsm_norm", 1);
 	GLCall(glActiveTexture(GL_TEXTURE2));
-	GLCall(glBindTexture(GL_TEXTURE_2D, gbackbuffer.albedo));
+	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, gbackbuffer.albedo));
 	ssvp.setInt("prsm_flux", 2);
 
-	ssvp.setFloat("vpl_radius", vpl_radius);
+	ssvp.setFloat("vpl_radius", vpl_radius);		
 
-	//GLCall(glActiveTexture(GL_TEXTURE3));
-	//GLCall(glBindTexture(GL_TEXTURE_2D, paraboloidmaps[0].depth_map));
-	//ssvp.setInt("parabolic_map1", 3);
-	//GLCall(glActiveTexture(GL_TEXTURE4));
-	//GLCall(glBindTexture(GL_TEXTURE_2D, paraboloidmaps[1].depth_map));
-	//ssvp.setInt("parabolic_map2", 4);
-	//GLCall(glActiveTexture(GL_TEXTURE5));
-	//GLCall(glBindTexture(GL_TEXTURE_2D, paraboloidmaps[2].depth_map));
-	//ssvp.setInt("parabolic_map3", 5);
-	//GLCall(glActiveTexture(GL_TEXTURE6));
-	//GLCall(glBindTexture(GL_TEXTURE_2D, paraboloidmaps[3].depth_map));
-	//ssvp.setInt("parabolic_map4", 6);
-
-	GLCall(glDispatchCompute(1, 1, 1));
+	GLCall(glDispatchCompute(num_VALs, 1, 1));
 
 	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
 }
@@ -552,4 +538,19 @@ void update_cluster_centers(Shader& update_vals, int num_vpls)
 	update_vals.setInt("vpl_samples", num_vpls);
 	GLCall(glDispatchCompute(1, 1, 1));
 	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+}
+
+void render_cluster_shadow_map(Shader& val_shadowmap, framebuffer& fb, float ism_near, float ism_far, const scene& s, int num_clusters)
+{
+	glCullFace(GL_FRONT);
+	fb.bind();
+	val_shadowmap.use();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	val_shadowmap.setFloat("ism_near", ism_near);
+	val_shadowmap.setFloat("ism_far", ism_far);
+	val_shadowmap.setMat4("M", s.model);
+	val_shadowmap.setInt("num_vals", num_clusters);
+	s.mesh->Draw(val_shadowmap);
+	fb.unbind();
+	glCullFace(GL_BACK);
 }
