@@ -199,8 +199,8 @@ int main(int argc, char **argv) {
 			light_data.s_h = rsm_res;
 			light_data.view = glm::lookAt(light_data.lightPos, current_scene.bb_mid, glm::vec3(0.0, 1.0, 0.2));
 			light_data.proj = glm::ortho(-1000.f, 1000.f, -200.f, 200.f, light_data.s_near, light_data.s_far);
-			vpl_radius = 1000.f;
-			ism_near = 1.0;
+			vpl_radius = 2000.f;
+			ism_near = 10.f;
 			ism_far = vpl_radius;
 			num_val_clusters = 4;
 		}
@@ -258,8 +258,8 @@ int main(int argc, char **argv) {
 		light_data.view = glm::lookAt(light_data.lightPos, current_scene.bb_mid, glm::vec3(0.0, 1.0, 0.2));
 		light_data.proj = glm::ortho(-1000.f, 1000.f, -200.f, 200.f, light_data.s_near, light_data.s_far);
 		
-		vpl_radius = 1000.f;
-		ism_near = 1.0;
+		vpl_radius = 2000.f;
+		ism_near = 10.f;
 		ism_far = vpl_radius;
 		num_val_clusters = 4;
 	}
@@ -281,6 +281,8 @@ int main(int argc, char **argv) {
 	//generic 
 	Shader view_layered("shaders/screen_quad_vert.glsl", "shaders/view_layered_frag.glsl");
 	Shader layered_val_shadowmap("shaders/layered_parabolic_view_vert.glsl", "shaders/layered_parabolic_view_frag.glsl", "shaders/layered_parabolic_view_geom.glsl");
+	Shader layered_cbox_val_shadowmap("shaders/layered_cbox_parabolic_view_vert.glsl", "shaders/layered_cbox_parabolic_view_frag.glsl", "shaders/layered_cbox_parabolic_view_geom.glsl");
+
 
 	/* ---- COMPUTE SHADERS ---- */
 	Shader gen_frustum(nullptr, nullptr, nullptr, "shaders/gen_frustum.glsl");
@@ -317,13 +319,13 @@ int main(int argc, char **argv) {
 	{
 		shader_table["geometry pass"] = sponza_g_buffer;
 		shader_table["rsm pass"] = sponza_rsm_pass;
-		shader_table["parabolic rsm pass"] = sponza_parabolic_rsm_pass;
+		shader_table["parabolic rsm pass"] = layered_val_shadowmap;
 	}
 	else if (path == cornell_path)
 	{
 		shader_table["geometry pass"] = cbox_g_buffer;
 		shader_table["rsm pass"] = cbox_rsm_pass;
-		shader_table["parabolic rsm pass"] = cbox_parabolic_rsm_pass;
+		shader_table["parabolic rsm pass"] = layered_cbox_val_shadowmap;
 	}
 
 	shader_table["generate frustum"] = gen_frustum;
@@ -659,7 +661,9 @@ int main(int argc, char **argv) {
 			
 			//render clusters dynamically	
 			glViewport(0, 0, ism_w, ism_h);
-			render_cluster_shadow_map(layered_val_shadowmap, val_array_fbo, ism_near, ism_far, current_scene, num_val_clusters);						
+			glCullFace(GL_FRONT);
+			render_cluster_shadow_map(shader_table["parabolic rsm pass"], val_array_fbo, ism_near, ism_far, current_scene, num_val_clusters);	
+			glCullFace(GL_BACK);
 			glViewport(0, 0, Wid, Hei);
 			/* ------- END VAL SM PASS -------- */
 			
@@ -685,12 +689,12 @@ int main(int argc, char **argv) {
 				first_frame = false;
 			}						
 
-			backface_vpl_count.bind();
-			unsigned int *test = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-			backface_vpl_count.unbind();
+			//backface_vpl_count.bind();
+			//unsigned int *test = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+			//backface_vpl_count.unbind();
 			//for(int i =0; i < num_val_clusters; i++)
-				std::cout << "num vpls in backface " << *test << std::endl;
+				//std::cout << "num vpls in backface " << *test << std::endl;
 			
 			
 

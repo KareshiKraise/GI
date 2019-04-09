@@ -233,7 +233,8 @@ void do_tiled_shading(Shader& tiled_shading, framebuffer& gbuffer, framebuffer& 
 	tiled_shading.setMat4("invProj", invProj);
 	tiled_shading.setMat4("ViewMat", sponza.camera->GetViewMatrix());
 	tiled_shading.setMat4("lightSpaceMat", shadowmap.light_space_mat);
-	
+	tiled_shading.setMat4("M", sponza.model);
+
 	tiled_shading.setVec3("sun_Dir", shadowmap.lightDir);
 	tiled_shading.setVec3("eyePos", sponza.camera->Position);
 	tiled_shading.setInt("num_vpls", numVPL);
@@ -542,7 +543,7 @@ void update_cluster_centers(Shader& update_vals, int num_vpls)
 
 void render_cluster_shadow_map(Shader& val_shadowmap, framebuffer& fb, float ism_near, float ism_far, const scene& s, int num_clusters)
 {
-	glCullFace(GL_FRONT);
+	
 	fb.bind();
 	val_shadowmap.use();
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -552,5 +553,5 @@ void render_cluster_shadow_map(Shader& val_shadowmap, framebuffer& fb, float ism
 	val_shadowmap.setInt("num_vals", num_clusters);
 	s.mesh->Draw(val_shadowmap);
 	fb.unbind();
-	glCullFace(GL_BACK);
+	
 }

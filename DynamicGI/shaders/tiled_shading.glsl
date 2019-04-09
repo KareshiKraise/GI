@@ -20,6 +20,7 @@ layout(binding = 5) uniform sampler2DArray val_shadowmaps;
 //layout(binding = 7) uniform sampler2D pShadowMap3;
 //layout(binding = 8) uniform sampler2D pShadowMap4;
 
+uniform mat4 M;
 uniform mat4 P;
 uniform mat4 invProj;
 uniform mat4 ViewMat;
@@ -132,10 +133,10 @@ float DirectionalShadow(vec4 fragPosLS, vec3 norm) {
 	return shadow;
 }
 
-#define EPSILON 0.05f
+#define EPSILON 0.005f
 float ParabolicShadow(vec4 worldPos, mat4 lightMV, float layer) {
 
-	vec4 lpos = lightMV * worldPos;
+	vec4 lpos = lightMV * M * worldPos;
 	float L = length(lpos.xyz);
 	lpos /= L;
 	float ret = 0.0f;
@@ -144,13 +145,13 @@ float ParabolicShadow(vec4 worldPos, mat4 lightMV, float layer) {
 	float fscene_depth;
 		
 	vec2 tex_coord;
-	tex_coord.x = (lpos.x / 2.*(1.0f + lpos.z)) + 0.5f;
-	tex_coord.y = (lpos.y / 2.*(1.0f + lpos.z)) + 0.5f;
+	tex_coord.x = (lpos.x / (1.0f + lpos.z))*0.5f + 0.5f;
+	tex_coord.y = (lpos.y / (1.0f + lpos.z))*0.5f + 0.5f;
 
 	fscene_depth = (L - near) / (far - near);
 
 	fdepth = texture(val_shadowmaps, vec3(tex_coord, layer)).r;
-	ret = ((fscene_depth + EPSILON) > fdepth) ? 0.0f : 1.0f;
+	ret = ((fscene_depth - EPSILON) > fdepth) ? 0.0f : 1.0f;
 	
 	return ret;
 }
@@ -242,7 +243,7 @@ void main(void){
 	for(uint i = gl_LocalInvocationIndex; i < num_vpls; i += max_threads)
 	{				
 		plight l = list[i];
-		vec4 vs_light_pos = ViewMat * vec4(l.p.xyz, 1.0);
+		vec4 vs_light_pos = ViewMat * M * vec4(l.p.xyz, 1.0);
 		unsigned int index = gl_WorkGroupID.y * gl_NumWorkGroups.x + gl_WorkGroupID.x;
 		if (lightCount < MAX_LIGHTS)
 		{
@@ -337,7 +338,7 @@ void main(void){
 		uint idx = lightIdx[i];
 		plight l = list[idx];
 
-		float ret = 0;
+		float ret;
 		float layer = l.n.w;
 		ret = ParabolicShadow(mpos, parabolic_mats[int(layer)], layer);
 
@@ -358,7 +359,8 @@ void main(void){
 		//	ret = ParabolicShadow(mpos, parabolic_mats[3], pShadowMap4);
 		//}		
 		
-		col += ret * vec4(shade_point(l, ppos, pnormal, palbedo), 0.0);		
+		col += ret * vec4(shade_point(l, ppos, pnormal, palbedo), 0.0);	
+		
 	}
 
 	if (double_bounce == true)
