@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
 
 	const glm::vec3 cbox_pos(0.0150753, 1.01611, 3.31748);
 	
-	const float rsm_res = 512.f;
+	const float rsm_res = 1024.f;
 
 	const float ism_w = 512.f;
 	const float ism_h = 512.f;
@@ -200,7 +200,7 @@ int main(int argc, char **argv) {
 			light_data.view = glm::lookAt(light_data.lightPos, current_scene.bb_mid, glm::vec3(0.0, 1.0, 0.2));
 			light_data.proj = glm::ortho(-1000.f, 1000.f, -200.f, 200.f, light_data.s_near, light_data.s_far);
 			vpl_radius = 2000.f;
-			ism_near = 10.f;
+			ism_near = 1.f;
 			ism_far = vpl_radius;
 			num_val_clusters = 4;
 		}
@@ -259,7 +259,7 @@ int main(int argc, char **argv) {
 		light_data.proj = glm::ortho(-1000.f, 1000.f, -200.f, 200.f, light_data.s_near, light_data.s_far);
 		
 		vpl_radius = 2000.f;
-		ism_near = 10.f;
+		ism_near = 1.f;
 		ism_far = vpl_radius;
 		num_val_clusters = 4;
 	}

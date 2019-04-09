@@ -133,7 +133,7 @@ float DirectionalShadow(vec4 fragPosLS, vec3 norm) {
 	return shadow;
 }
 
-#define EPSILON 0.005f
+#define EPSILON 0.05f
 float ParabolicShadow(vec4 worldPos, mat4 lightMV, float layer) {
 
 	vec4 lpos = lightMV * M * worldPos;
