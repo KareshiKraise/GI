@@ -41,16 +41,13 @@ const float wa = 0.4;
 void main()
 {
 	
-	if (first_cluster_pass == true)
-	{
-		if (gl_LocalInvocationIndex == 0)
+	//if (first_cluster_pass == true)
+	//{
+		if (gl_LocalInvocationIndex < num_vals)
 		{
-			for (int i = 0; i < num_vals; i++)
-			{
-				vpl_count[i] = 0;
-			}
+			vpl_count[gl_LocalInvocationIndex] = 0;			
 		}
-	}
+	//}
 
 	barrier();
 

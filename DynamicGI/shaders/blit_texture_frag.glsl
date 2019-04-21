@@ -1,7 +1,8 @@
 #version 430
 
-layout(binding = 0) uniform sampler2D texImage;
-layout(binding = 1) uniform sampler2D depthImage;
+layout(binding = 0) uniform sampler2D texImage1;
+layout(binding = 1) uniform sampler2D texAlbedo;
+layout(binding = 2) uniform sampler2D depthImage;
 
 in vec2 tex;
 
@@ -27,15 +28,17 @@ float LinearizeDepth(float depth)
 
 void main(){
 	
+	vec3 albedo = texture(texAlbedo, tex).rgb;	
+	vec3 d = texture(texImage1, tex).rgb;	
 	
-	vec3 d = vec3(texture(texImage, tex).rgb);
+	d = d * albedo;	
 	const float gamma = 2.2f;	
+	vec3 mapped = vec3(1.0f) - exp(-d * 3.f);
+	mapped = pow(mapped, vec3(1.0f/gamma));	
 	
-	vec3 mapped = vec3(1.0f) - exp(-d * 5.f);
-	mapped = pow(mapped, vec3(1.0f/gamma));
-
 	color = vec4(mapped, 1.0);
 	gl_FragDepth = texture(depthImage, tex).r;
+	
 
 	//see depth
 	//float z = texture(depthImage, tex).r;

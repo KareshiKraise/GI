@@ -555,3 +555,170 @@ void render_cluster_shadow_map(Shader& val_shadowmap, framebuffer& fb, float ism
 	fb.unbind();
 	
 }
+
+float radicalInverse_VdC(unsigned int bits) {
+	bits = (bits << 16u) | (bits >> 16u);
+	bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+	bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+	bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+	bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+	return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+}
+
+glm::vec2 hammersley2d(unsigned int i, unsigned int N) {
+	return glm::vec2(float(i) / float(N), radicalInverse_VdC(i));
+}
+
+void split_gbuffer(Shader& split_gbuffer, framebuffer& gbuffer, framebuffer& interleaved_buffer, int n_rows, int n_cols, int Wid, int Hei)
+{
+	split_gbuffer.use();
+
+	//bind
+	GLCall(glActiveTexture(GL_TEXTURE0));
+	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.pos));
+	split_gbuffer.setInt("gposition", 0);
+
+	GLCall(glActiveTexture(GL_TEXTURE1));
+	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.normal));
+	split_gbuffer.setInt("gnormal", 1);
+
+	GLCall(glActiveTexture(GL_TEXTURE2));
+	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.albedo));
+	split_gbuffer.setInt("gcol", 2);
+
+	GLCall(glActiveTexture(GL_TEXTURE3));
+	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.depth_map));
+	split_gbuffer.setInt("gdepth", 3);
+
+	split_gbuffer.setInt("Wid", Wid);
+	split_gbuffer.setInt("Hei", Hei);
+	split_gbuffer.setInt("n_rows", n_rows);
+	split_gbuffer.setInt("n_cols", n_cols);
+
+	GLCall(glBindImageTexture(0, interleaved_buffer.pos, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F));
+	GLCall(glBindImageTexture(1, interleaved_buffer.normal, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F));
+	GLCall(glBindImageTexture(2, interleaved_buffer.albedo, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8));
+	GLCall(glBindImageTexture(3, interleaved_buffer.depth_map, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F));
+
+	GLCall(glDispatchCompute(Wid/16, Hei/16, 1));
+	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+}
+
+void interleaved_shading(scene& current_scene, GLuint draw_tex, Shader& interleaved_shade, const framebuffer& interleaved_buffer, const framebuffer& rsm_buffer, const framebuffer& val_array,
+	const shadow_data& light_data, int num_first_bounce, int num_second_bounce, int num_clusters, float parabola_near, float parabola_far, bool see_bounce, int Wid, int Hei, int num_rows, int num_cols)
+{
+	interleaved_shade.use();
+
+	GLCall(glActiveTexture(GL_TEXTURE0));
+	GLCall(glBindTexture(GL_TEXTURE_2D, interleaved_buffer.pos));
+	interleaved_shade.setInt("gposition", 0);
+
+	GLCall(glActiveTexture(GL_TEXTURE1));
+	GLCall(glBindTexture(GL_TEXTURE_2D, interleaved_buffer.normal));
+	interleaved_shade.setInt("gnormal", 1);
+
+	GLCall(glActiveTexture(GL_TEXTURE2));
+	GLCall(glBindTexture(GL_TEXTURE_2D, interleaved_buffer.albedo));
+	interleaved_shade.setInt("galbedo", 2);
+
+	GLCall(glActiveTexture(GL_TEXTURE3));
+	GLCall(glBindTexture(GL_TEXTURE_2D, interleaved_buffer.depth_map));
+	interleaved_shade.setInt("gdepth", 3);
+
+	GLCall(glActiveTexture(GL_TEXTURE4));
+	GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.depth_map));
+	interleaved_shade.setInt("directionalLightMap", 4);
+
+	GLCall(glActiveTexture(GL_TEXTURE5));
+	GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, val_array.depth_map));
+	interleaved_shade.setInt("val_shadowmaps", 5);
+
+	interleaved_shade.setInt("num_rows", num_rows);
+	interleaved_shade.setInt("num_cols", num_cols);
+	interleaved_shade.setInt("num_first_bounce", num_first_bounce);
+	interleaved_shade.setInt("num_second_bounce", num_second_bounce);
+	interleaved_shade.setInt("num_vals", num_clusters);
+	interleaved_shade.setInt("wid", Wid);
+	interleaved_shade.setInt("hei", Hei);
+
+	interleaved_shade.setFloat("parabola_near", parabola_near);
+	interleaved_shade.setFloat("parabola_far", parabola_far);
+
+	interleaved_shade.setBool("see_bounce", see_bounce);
+
+	interleaved_shade.setVec3("sun_dir", light_data.lightDir);
+	interleaved_shade.setVec3("eye_pos", current_scene.camera->Position);
+
+	interleaved_shade.setMat4("lightspacemat", light_data.light_space_mat);
+	interleaved_shade.setMat4("M", current_scene.model);
+
+
+	GLCall(glBindImageTexture(0, draw_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F));
+
+	GLCall(glDispatchCompute(Wid / 16, Hei / 16, 1));
+	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+}
+
+void join_buffers(Shader& join_gbuffer, GLuint draw_tex, GLuint final_tex, int Wid, int Hei, int num_rows, int num_cols)
+{
+	join_gbuffer.use();
+	GLCall(glActiveTexture(GL_TEXTURE0));
+	GLCall(glBindTexture(GL_TEXTURE_2D, draw_tex));
+	join_gbuffer.setInt("interleaved_image", 0);
+	join_gbuffer.setInt("Wid", Wid);
+	join_gbuffer.setInt("Hei", Hei);
+	join_gbuffer.setInt("n_rows", num_rows);
+	join_gbuffer.setInt("n_cols", num_cols);
+	GLCall(glBindImageTexture(0, final_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F));
+	GLCall(glDispatchCompute(Wid / 16, Hei / 16, 1));
+	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+}
+
+void edge_detection(Shader& edge_program, framebuffer& gbuffer, GLuint edge_tex, int Wid, int Hei)
+{
+	edge_program.use();
+	GLCall(glActiveTexture(GL_TEXTURE0));
+	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.normal));
+	edge_program.setInt("gnormal", 0);
+
+	GLCall(glActiveTexture(GL_TEXTURE1));
+	GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.depth_map));
+	edge_program.setInt("gdepth", 1);
+
+	edge_program.setInt("Wid", Wid);
+	edge_program.setInt("Hei", Hei);
+
+	GLCall(glBindImageTexture(0, edge_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8));
+
+	GLCall(glDispatchCompute(Wid / 16, Hei / 16, 1));
+	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+}
+
+void bilateral_blur(Shader& xblur, Shader& yblur, GLuint in_tex, GLuint blur_tex, GLuint out_tex, GLuint edge_tex, float Wid, float Hei)
+{
+	xblur.use();
+	xblur.setFloat("Wid", Wid);
+	xblur.setFloat("Hei", Hei);
+	GLCall(glActiveTexture(GL_TEXTURE0));
+	GLCall(glBindTexture(GL_TEXTURE_2D, in_tex));
+	xblur.setInt("colorBuffer", 0);
+	GLCall(glActiveTexture(GL_TEXTURE1));
+	GLCall(glBindTexture(GL_TEXTURE_2D, edge_tex));
+	xblur.setInt("edgeBuffer", 1);
+	GLCall(glBindImageTexture(0, blur_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F));
+	GLCall(glDispatchCompute(Wid / 16, Hei / 16, 1));
+	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+
+	yblur.use();
+	yblur.setFloat("Wid", Wid);
+	yblur.setFloat("Hei", Hei);
+	GLCall(glActiveTexture(GL_TEXTURE0));
+	GLCall(glBindTexture(GL_TEXTURE_2D, blur_tex));
+	yblur.setInt("colorBuffer", 0);
+	GLCall(glActiveTexture(GL_TEXTURE1));
+	GLCall(glBindTexture(GL_TEXTURE_2D, edge_tex));
+	yblur.setInt("edgeBuffer", 1);
+	GLCall(glBindImageTexture(0, out_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F));
+	GLCall(glDispatchCompute(Wid / 16, Hei / 16, 1));
+	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+}

@@ -34,7 +34,7 @@ void main()
 	float L = length(pos.xyz);
 	pos /= L;
 
-	if (pos.z < 0.f)
+	if (pos.z <= 0.0f)
 	{
 		discard;
 	}

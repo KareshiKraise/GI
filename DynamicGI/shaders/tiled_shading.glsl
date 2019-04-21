@@ -150,7 +150,7 @@ float ParabolicShadow(vec4 worldPos, mat4 lightMV, float layer) {
 
 	fscene_depth = (L - near) / (far - near);
 
-	fdepth = texture(val_shadowmaps, vec3(tex_coord, layer)).r;
+	fdepth = texture(val_shadowmaps, vec3(tex_coord, layer)).r;	
 	ret = ((fscene_depth - EPSILON) > fdepth) ? 0.0f : 1.0f;
 	
 	return ret;

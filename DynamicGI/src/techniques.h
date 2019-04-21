@@ -134,3 +134,18 @@ void calc_distance_to_val(Shader& clusterize_vals, int num_val_clusters, int num
 void update_cluster_centers(Shader& update_vals, int num_vpls);
 
 void render_cluster_shadow_map(Shader& val_shadowmap, framebuffer& fb, float ism_near, float ism_far, const scene& s, int num_clusters);
+
+float radicalInverse_VdC(unsigned int bits);
+
+glm::vec2 hammersley2d(unsigned int i, unsigned int N);
+
+void split_gbuffer(Shader& split_gbuffer, framebuffer& gbuffer, framebuffer& interleaved_buffer, int n_rows, int n_cols, int Wid, int Hei);
+
+void interleaved_shading(scene& current_scene, GLuint draw_tex, Shader& interleaved_shade, const framebuffer& interleaved_buffer, const framebuffer& rsm_buffer, const framebuffer& val_array,
+	const shadow_data& light_data, int num_first_bounce, int num_second_bounce, int num_clusters, float parabola_near, float parabola_far, bool see_bounce, int Wid, int Hei, int num_rows, int num_cols);
+
+void join_buffers(Shader& join_gbuffer, GLuint draw_tex, GLuint final_tex, int Wid, int Hei, int num_rows, int num_cols);
+
+void edge_detection(Shader& edge_program, framebuffer& gbuffer, GLuint edge_tex, int Wid, int Hei);
+
+void bilateral_blur(Shader& xblur, Shader& yblur, GLuint in_tex, GLuint blur_tex, GLuint out_tex, GLuint edge_tex, float Wid, float Hei);
