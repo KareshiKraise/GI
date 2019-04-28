@@ -127,7 +127,7 @@ int main(int argc, char **argv) {
 
 	const float fov = 60.0f;
 	const float cornel_n_v = 0.1f;
-	const float cornel_f_v = 5.f;
+	const float cornel_f_v = 10.f;
 
 	const float sponza_n_v = 1.f;
 	const float sponza_f_v = 3000.f;
@@ -147,8 +147,19 @@ int main(int argc, char **argv) {
 	
 	float vpl_radius;
 
-	int num_cluster_pass = 2;
+	int num_cluster_pass = 4;
 	int num_blur_pass = 2;
+
+	int num_rows = 2;
+	int num_cols = 2;
+
+	//cornell box lighting
+	spot_light spotlight;
+	float cutoff_angle = 15.0f; //in degrees
+	float cutoff = cos(glm::radians(cutoff_angle));
+	spotlight.c = glm::vec4(1.0, 1.0, 1.0, glm::radians(cutoff_angle));
+    spotlight.d = glm::vec4(0.536056, 0.428935, -0.727089, 1.0);	
+	spotlight.p = glm::vec4(0.17507, 1.27212, 1.0336, 1.0);
 
 	/*----SET WINDOW AND CALLBACKS ----*/
 	window w;
@@ -171,12 +182,13 @@ int main(int argc, char **argv) {
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 
-	glClearColor(1.0, 1.0, 1.0, 1.0);
+	//glClearColor(1.0, 1.0, 1.0, 1.0);
 
 	if (argc > 1)
 	{
 		std::string model = argv[1];
 		if (model == "sponza") {
+			glClearColor(1.0, 1.0, 1.0, 1.0);
 			path = sponza_path;
 			current_scene.mesh = new mesh_loader(path.c_str());
 			current_scene.bb_mid = current_scene.mesh->bb_mid;
@@ -199,10 +211,11 @@ int main(int argc, char **argv) {
 			light_data.proj = glm::ortho(-1000.f, 1000.f, -200.f, 200.f, light_data.s_near, light_data.s_far);
 			vpl_radius = 2000.f;
 			ism_near = 1.f;
-			ism_far = vpl_radius;
+			ism_far = vpl_radius-500.f;
 			num_val_clusters = 4;
 		}
 		else if (model == "cbox") {
+			glClearColor(0.0, 0.0, 0.0, 1.0);
 			path = cornell_path;
 			current_scene.mesh = new mesh_loader(path.c_str(), model_type::NO_TEXTURE);
 			current_scene.bb_mid = current_scene.mesh->bb_mid;
@@ -214,19 +227,23 @@ int main(int argc, char **argv) {
 			current_scene.view = current_scene.camera->GetViewMatrix();
 			current_scene.proj = glm::perspective(glm::radians(fov), Wid / Hei, current_scene.n_val, current_scene.f_val);
 
-			light_data.lightColor = glm::vec3(0.9);
-			light_data.lightPos = glm::vec3(0.0, 1.95f, 0.0f);
-			light_data.lightDir = glm::normalize(light_data.lightPos - current_scene.bb_mid);
+			light_data.lightColor = glm::vec3(1.0);
+			//light_data.lightPos = glm::vec3(0.0, 1.95f, 0.0f);
+			//light_data.lightDir = glm::normalize(light_data.lightPos - current_scene.bb_mid);
+			light_data.lightPos = glm::vec3(spotlight.p);
+			light_data.lightDir = -glm::normalize(glm::vec3(spotlight.d));
 			light_data.s_near = cornel_n_v;
 			light_data.s_far = cornel_f_v;
 			light_data.s_w = rsm_res;
 			light_data.s_h = rsm_res;
-			light_data.view = glm::lookAt(light_data.lightPos, light_data.lightPos + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0, 0.0, -1.0));
-			light_data.proj = glm::ortho(current_scene.mesh->min.x, current_scene.mesh->max.x, current_scene.mesh->min.z, current_scene.mesh->max.z, light_data.s_near, light_data.s_far);
+			light_data.view = glm::lookAt(glm::vec3(spotlight.p), glm::vec3(spotlight.p)+glm::vec3(spotlight.d), glm::vec3(-0.204316, 0.93606, 0.28644));
+			light_data.proj = glm::perspective(glm::radians(cutoff_angle), 1.0f, light_data.s_near, light_data.s_far);
+			//light_data.view = glm::lookAt(light_data.lightPos, light_data.lightPos + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0, 0.0, -1.0));
+			//light_data.proj = glm::ortho(current_scene.mesh->min.x, current_scene.mesh->max.x, current_scene.mesh->min.z, current_scene.mesh->max.z, light_data.s_near, light_data.s_far);
 
-			vpl_radius = 1.90f;
-			ism_near = 0.5;
-			ism_far = vpl_radius;
+			vpl_radius = 5.0f;
+			ism_near = 0.1;
+			ism_far = vpl_radius*5;
 			num_val_clusters = 4;
 		}
 		else {
@@ -235,6 +252,7 @@ int main(int argc, char **argv) {
 		}
 	}
 	else {
+		glClearColor(1.0, 1.0, 1.0, 1.0);
 		path = sponza_path;
 		current_scene.mesh = new mesh_loader(path.c_str());
 		current_scene.bb_mid = current_scene.mesh->bb_mid;
@@ -258,7 +276,7 @@ int main(int argc, char **argv) {
 
 		vpl_radius = 2000.f;
 		ism_near = 1.f;
-		ism_far = vpl_radius;
+		ism_far = vpl_radius-500.f;
 		num_val_clusters = 4;
 	}
 
@@ -296,6 +314,8 @@ int main(int argc, char **argv) {
 	Shader recompute_bounce(nullptr, nullptr, nullptr, "shaders/recompute_second_bounce.glsl");
 	Shader split_buff(nullptr, nullptr, nullptr, "shaders/split_gbuffer.glsl" );
 	Shader interleaved_shade(nullptr, nullptr, nullptr, "shaders/interleaved_shade.glsl");
+	Shader cbox_interleaved_shade(nullptr, nullptr, nullptr, "shaders/cbox_interleaved_shade.glsl");
+
 	Shader join_gbuffer(nullptr, nullptr, nullptr, "shaders/join_gbuffer.glsl");
 	Shader edge_program(nullptr, nullptr, nullptr, "shaders/edge_detection.glsl");
 	Shader xblur(nullptr, nullptr, nullptr, "shaders/gaussian_blur_x.glsl");
@@ -323,12 +343,14 @@ int main(int argc, char **argv) {
 		shader_table["geometry pass"] = sponza_g_buffer;
 		shader_table["rsm pass"] = sponza_rsm_pass;
 		shader_table["parabolic rsm pass"] = layered_val_shadowmap;
+		shader_table["interleaved shading"] = interleaved_shade;
 	}
 	else if (path == cornell_path)
 	{
 		shader_table["geometry pass"] = cbox_g_buffer;
 		shader_table["rsm pass"] = cbox_rsm_pass;
 		shader_table["parabolic rsm pass"] = layered_cbox_val_shadowmap;
+		shader_table["interleaved shading"] = cbox_interleaved_shade;
 	}
 
 	shader_table["generate frustum"] = gen_frustum;
@@ -601,11 +623,8 @@ int main(int argc, char **argv) {
 	glm::mat4 invProj = glm::inverse(current_scene.proj);
 
 	//Tile Frustum generation decoupled from tiled frustum culling pass
-	generate_tile_frustum(gen_frustum, frustum_planes, Wid, Hei, invProj);		
-
-
-	int num_rows = 2;
-	int num_cols = 2;
+	//generate_tile_frustum(gen_frustum, frustum_planes, Wid, Hei, invProj);		
+	
 	
 
 	//main loop
@@ -613,7 +632,7 @@ int main(int argc, char **argv) {
 								
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
-		glDepthMask(GL_TRUE);
+     	glDepthMask(GL_TRUE);
 		glEnable(GL_DEPTH_TEST);		
 				
 		current_scene.view = current_scene.camera->GetViewMatrix();
@@ -630,8 +649,7 @@ int main(int argc, char **argv) {
 		
 		glm::mat4 v_mat = current_scene.camera->GetViewMatrix();
 				
-		gbuffer_pass(gbuffer, shader_table["geometry pass"], current_scene, v_mat);
-			
+		gbuffer_pass(gbuffer, shader_table["geometry pass"], current_scene, v_mat);			
 
 		/*-----ACTUAL RENDERING-----*/
 		if (current_view == SCENE)
@@ -679,16 +697,22 @@ int main(int argc, char **argv) {
 			//for(int i =0; i < num_val_clusters; i++)
 			//	std::cout << "num vpls in " << i << " cluster: " << test[i] << std::endl;
 						
-			/* --- END CLUSTER PASS ---*/			
+			/* --- END CLUSTER PASS ---*/	
 			
 			//* ---- BEGIN VAL SM PASS ---- */
 			direct_vals.bind();
 			point_light *first_vals = (point_light* )glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);		
+			if (!first_vals)
+			{
+				std::cout << "failed to map vals buffer" << std::endl;
+			}
+			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 			direct_vals.unbind();
 			glDepthMask(GL_TRUE);
 			glEnable(GL_DEPTH_TEST);			
 			
+			GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+
 			//render a parabolic map for each val
 			for (int i = 0; i < num_val_clusters; i++)
 			{
@@ -711,8 +735,8 @@ int main(int argc, char **argv) {
 			val_mats.upload_data(pView.data());					
 			
 			//render clusters dynamically	
-			glViewport(0, 0, ism_w, ism_h);
-			glCullFace(GL_FRONT);			
+			glViewport(0, 0, ism_w, ism_h);			
+			glCullFace(GL_FRONT);
 			render_cluster_shadow_map(shader_table["parabolic rsm pass"], val_array_fbo, ism_near, ism_far, current_scene, num_val_clusters);				
 			glCullFace(GL_BACK);
 			glViewport(0, 0, Wid, Hei);
@@ -730,7 +754,7 @@ int main(int argc, char **argv) {
 				//pass_vpl_count.bindBase(3);
 				//val_mats.set_binding_point(0);
 
-				compute_vpl_propagation(shader_table["ssvp"], pView, val_array_fbo, parabolic_fbos, samplesTBO, ism_near, ism_far, VPL_SAMPLES, num_val_clusters, vpl_radius);
+				compute_vpl_propagation(shader_table["ssvp"], pView, val_array_fbo, parabolic_fbos, normal_samples_tbo, ism_near, ism_far, VPL_SAMPLES, num_val_clusters, vpl_radius);
 				
 				backface_vpls.unbind();
 				backface_vpl_count.unbind();
@@ -742,8 +766,6 @@ int main(int argc, char **argv) {
 
 			//debug print
 			//backface_vpl_count.bind();
-			//unsigned int *test = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 			//backface_vpl_count.unbind();
 			//for(int i =0; i < num_val_clusters; i++)
 			//std::cout << "num vpls in backface " << *test << std::endl;				
@@ -791,7 +813,7 @@ int main(int argc, char **argv) {
 
 			split_gbuffer(split_buff, gbuffer, interleaved_buffer, num_rows, num_cols,  Wid, Hei);
 						
-			interleaved_shading(current_scene, draw_tex, interleaved_shade, interleaved_buffer, rsm_buffer, val_array_fbo,
+			interleaved_shading(current_scene, draw_tex, shader_table["interleaved shading"], interleaved_buffer, rsm_buffer, val_array_fbo,
 				                light_data, VPL_SAMPLES, (num_val_clusters * num_normal_samples) , 
 								num_val_clusters, ism_near, ism_far, see_bounce, Wid, Hei, num_rows,  num_cols);
 						
@@ -813,7 +835,7 @@ int main(int argc, char **argv) {
 
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);			
 			blit.use();
-			GLCall(glActiveTexture(GL_TEXTURE0));
+			GLCall(glActiveTexture(GL_TEXTURE0));			
 			GLCall(glBindTexture(GL_TEXTURE_2D, final_tex));
 			blit.setInt("texImage1", 0);
 
@@ -1040,7 +1062,19 @@ void render_debug_view(window& wnd, Shader& debug_program, quad& debug_quad, sha
 	GLCall(glActiveTexture(GL_TEXTURE0));
 	debug_program.setInt("screen_tex", 0);
 	GLCall(glBindTexture(GL_TEXTURE_2D, shadow_buffer.depth_map));
-	//GLCall(glBindTexture(GL_TEXTURE_2D, rsm.albedo));
+
+	GLCall(glActiveTexture(GL_TEXTURE1));
+	debug_program.setInt("rsm_albedo", 1);
+	GLCall(glBindTexture(GL_TEXTURE_2D, shadow_buffer.albedo));
+
+	GLCall(glActiveTexture(GL_TEXTURE2));
+	debug_program.setInt("rsm_normal", 2);
+	GLCall(glBindTexture(GL_TEXTURE_2D, shadow_buffer.normal));
+
+	GLCall(glActiveTexture(GL_TEXTURE3));
+	debug_program.setInt("rsm_pos", 3);
+	GLCall(glBindTexture(GL_TEXTURE_2D, shadow_buffer.pos));
+	
 	debug_quad.renderQuad();
 }
 

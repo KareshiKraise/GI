@@ -15,6 +15,6 @@ void main()
 {
 	rsm_position = p;
 	rsm_normal = n;	
-	vec3 flux = c * lightColor * clamp(dot(n, lightDir), 0.0, 1.0);
-	rsm_flux = vec4(flux, 0.0);
+    vec3 flux = c * lightColor * max(dot(n, lightDir), 0.0);
+	rsm_flux = vec4(flux, 1.0);
 }

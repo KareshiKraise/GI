@@ -25,19 +25,21 @@ public:
 		// 1. retrieve the vertex/fragment source code from filePath
 		std::string vertexCode;
 		std::string fragmentCode;
-		std::string geometryCode;
+		std::string geometryCode;		
 		std::string computeCode;
 
 		std::ifstream vShaderFile;
 		std::ifstream fShaderFile;
 		std::ifstream gShaderFile;
 		std::ifstream cShaderFile;
+		
 
 		// ensure ifstream objects can throw exceptions:
 		vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 		fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 		gShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 		cShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+		
 		try
 		{
 			
@@ -65,7 +67,7 @@ public:
 				gShaderFile.close();
 				geometryCode = gShaderStream.str();
 			}
-			// if compute shader path is present, also load a geometry shader
+			// if compute shader path is present, also load a compute shader
 			if (computePath != nullptr) {
 				cShaderFile.open(computePath);
 				std::stringstream cShaderStream;
@@ -73,6 +75,7 @@ public:
 				cShaderFile.close();
 				computeCode = cShaderStream.str();
 			}
+			
 		}
 		catch (std::ifstream::failure e)
 		{
@@ -120,7 +123,7 @@ public:
 			GLCall(glCompileShader(compute_s));
 			checkCompileErrors(compute_s, "COMPUTE");
 		}
-
+		
 		// shader Program
 		ID = glCreateProgram();
 

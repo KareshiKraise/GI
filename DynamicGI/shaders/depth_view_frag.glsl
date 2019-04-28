@@ -5,7 +5,11 @@
 out vec4 fragColor;
 in vec2 tex;
 
-uniform sampler2D screen_tex;
+layout(binding = 0)	uniform sampler2D screen_tex;
+layout(binding = 1)	uniform sampler2D rsm_albedo;
+layout(binding = 2)	uniform sampler2D rsm_normal;
+layout(binding = 3)	uniform sampler2D rsm_pos;
+
 uniform float near;
 uniform float far;
 
@@ -27,9 +31,11 @@ void main() {
 	
 
 	//view parabolic depth map
-	float val = texture2D(screen_tex, tex).r;
-	fragColor = vec4(val, val, val, 1.0);
+	//float val = texture2D(screen_tex, tex).r;
+	//fragColor = vec4(val, val, val, 1.0);
 
+	vec4 val = texture(rsm_albedo, tex);
+	fragColor = val;
 	
 	
 }

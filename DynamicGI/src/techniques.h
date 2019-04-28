@@ -80,6 +80,13 @@ struct point_light {
 	glm::vec4 c;//color	
 };
 
+struct spot_light
+{
+	glm::vec4 p; //position + cutoff
+	glm::vec4 d; //direction
+	glm::vec4 c; //color
+};
+
 struct frustum {
 	glm::vec4 planes[4];
 };

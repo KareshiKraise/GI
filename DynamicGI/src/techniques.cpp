@@ -391,7 +391,7 @@ void rsm_pass(Shader& RSM_pass, framebuffer& rsm, shadow_data& light_data, scene
 	RSM_pass.setMat4("P", light_data.proj);
 	RSM_pass.setMat4("V", light_data.view);
 	RSM_pass.setMat4("M", s.model);
-	RSM_pass.setFloat("lightColor", 0.65f);
+	RSM_pass.setFloat("lightColor", 1.0f);
 	RSM_pass.setVec3("lightDir", light_data.lightDir);
 	glViewport(0, 0, light_data.s_w, light_data.s_h);
 	rsm.bind();
@@ -648,6 +648,7 @@ void interleaved_shading(scene& current_scene, GLuint draw_tex, Shader& interlea
 
 	interleaved_shade.setVec3("sun_dir", light_data.lightDir);
 	interleaved_shade.setVec3("eye_pos", current_scene.camera->Position);
+	interleaved_shade.setVec3("lpos", light_data.lightPos);
 
 	interleaved_shade.setMat4("lightspacemat", light_data.light_space_mat);
 	interleaved_shade.setMat4("M", current_scene.model);

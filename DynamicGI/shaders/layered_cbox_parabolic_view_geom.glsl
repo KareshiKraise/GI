@@ -41,6 +41,7 @@ void main()
 		{
 			vec4 p = vec4(gs_in[j].pos, 1.0);
 			p = parabolic_mats[i] * M * p;
+			
 			p /= p.w;
 
 			float L = length(p.xyz);
