@@ -1,6 +1,6 @@
 #version 430
 
-#define NUM_CLUSTERS 4
+#define NUM_CLUSTERS 8
 
 layout(triangles) in;
 layout(triangle_strip, max_vertices = 12) out;

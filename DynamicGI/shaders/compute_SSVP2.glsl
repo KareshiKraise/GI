@@ -29,7 +29,7 @@ uniform float vpl_radius;
 
 void main() {
      
-	float SECOND_BOUNCE_RAD = vpl_radius - (vpl_radius * 0.5f);  
+	float SECOND_BOUNCE_RAD = vpl_radius - (vpl_radius * 0.3f);  
 	
 	vec2 uv = imageLoad(samples, int(gl_LocalInvocationIndex)).rg;
 

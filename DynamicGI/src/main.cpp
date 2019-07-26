@@ -4,12 +4,15 @@
 const float PI = 3.1415926f;
 const float PI_TWO = 6.2831853;
 int VPL_SAMPLES = 8 * 8; //number of lights
+int NUM_2ND_BOUNCE = 64;
 int num_val_clusters = 4;
 
 //scene and model paths
 const char* sponza_path = "models/sponza/sponza.obj";
 const char* sphere_path = "models/sphere/sphere.obj";
-const char* cornell_path = "models/cornell/CornellBox-Original.obj";
+//const char* cornell_path = "models/cornell/CornellBox-Original.obj";
+const char* cornell_path = "models/cornell/dense.obj";
+
 std::string path;
 
 scene current_scene;
@@ -26,6 +29,15 @@ enum view_mode {
 	NUM_MODES
 };
 
+enum move {
+	F,
+	B,
+	L,
+	R
+};
+
+bool forward = false, back = false, left = false, right = false;
+bool light_rotate_left = false, light_rotate_right = false;
 
 /*---camera controls---*/
 double lastX = 0, lastY = 0;
@@ -52,7 +64,7 @@ void kbfunc(GLFWwindow* window, int key, int scan, int action, int mods);
 //mouse function
 void mfunc(GLFWwindow *window, double xpos, double ypos);
 
-#define FRAME_AVG 60
+#define FRAME_AVG 128
 struct frametime_data
 {
 	int frame_count;	
@@ -71,6 +83,16 @@ double avg_fps(frametime_data &dat)
 	return sum;
 }
 
+double avg_ms(frametime_data &dat)
+{
+	double sum = 0;
+	for (int i = 0; i < FRAME_AVG; i++)
+	{
+		sum += dat.data[i];
+	}
+	sum /= FRAME_AVG;	
+	return sum;
+}
 
 /* GUI STUFF*/
 static void glfw_error_callback(int error, const char* description)
@@ -116,21 +138,29 @@ int main(int argc, char **argv) {
 
 	//frametime data 
 	frametime_data time_dat;
+	frametime_data ms_dat;
+	ms_dat.frame_count = 0;
 	time_dat.frame_count = 0;
 
 	//Shader hash
 	std::unordered_map<std::string, Shader> shader_table;
 
 	/*-----parameters----*/
+	//float Wid = 3840.0f;
+	//float Hei = 2160.0f;
+	
 	float Wid = 1280.0f;
 	float Hei = 720.0f;
 
-	const float fov = 60.0f;
+	//float Wid = 1920.0f;
+	//float Hei = 1080.0f;
+
+	const float fov = 65.0f;
 	const float cornel_n_v = 0.1f;
 	const float cornel_f_v = 10.f;
 
 	const float sponza_n_v = 1.f;
-	const float sponza_f_v = 3000.f;
+	const float sponza_f_v = 5000.f;
 
 	const float sponza_spd = 25.f;
 	const float cbox_spd = 0.10f;
@@ -147,7 +177,7 @@ int main(int argc, char **argv) {
 	
 	float vpl_radius;
 
-	int num_cluster_pass = 4;
+	int num_cluster_pass = 3;
 	int num_blur_pass = 2;
 
 	int num_rows = 2;
@@ -159,6 +189,10 @@ int main(int argc, char **argv) {
 	float cutoff = cos(glm::radians(cutoff_angle));
 	spotlight.c = glm::vec4(1.0, 1.0, 1.0, glm::radians(cutoff_angle));
     spotlight.d = glm::vec4(0.536056, 0.428935, -0.727089, 1.0);	
+	//spotlight.d = glm::vec4(0.336056, 0.628935, -0.727089, 1.0);
+	//spotlight.d = glm::vec4(0.136056, 0.828935, -0.727089, 1.0);
+      spotlight.d = glm::vec4(0.356056, 0.4228935, -0.727089, 1.0);
+	//spotlight.d = glm::vec4(0.0, 1.0, -0.5, 1.0);
 	spotlight.p = glm::vec4(0.17507, 1.27212, 1.0336, 1.0);
 
 	/*----SET WINDOW AND CALLBACKS ----*/
@@ -183,7 +217,7 @@ int main(int argc, char **argv) {
 	glEnable(GL_CULL_FACE);
 
 	//glClearColor(1.0, 1.0, 1.0, 1.0);
-
+	
 	if (argc > 1)
 	{
 		std::string model = argv[1];
@@ -202,6 +236,7 @@ int main(int argc, char **argv) {
 
 			light_data.lightColor = glm::vec3(0.65);
 			light_data.lightPos = current_scene.bb_mid + glm::vec3(0, 2000.f, 0);
+			//light_data.lightPos = glm::vec3(100, 2000, 100);
 			light_data.lightDir = glm::normalize(light_data.lightPos - current_scene.bb_mid);
 			light_data.s_near = sponza_n_v;
 			light_data.s_far = sponza_f_v;
@@ -209,10 +244,11 @@ int main(int argc, char **argv) {
 			light_data.s_h = rsm_res;
 			light_data.view = glm::lookAt(light_data.lightPos, current_scene.bb_mid, glm::vec3(0.0, 1.0, 0.2));
 			light_data.proj = glm::ortho(-1000.f, 1000.f, -200.f, 200.f, light_data.s_near, light_data.s_far);
+			//light_data.proj = glm::ortho(-900.f, 900.f, -500.f, 500.f, light_data.s_near, light_data.s_far);
 			vpl_radius = 2000.f;
-			ism_near = 1.f;
+			ism_near = 100.f;
 			ism_far = vpl_radius-500.f;
-			num_val_clusters = 4;
+			//num_val_clusters = 4;
 		}
 		else if (model == "cbox") {
 			glClearColor(0.0, 0.0, 0.0, 1.0);
@@ -243,8 +279,8 @@ int main(int argc, char **argv) {
 
 			vpl_radius = 5.0f;
 			ism_near = 0.1;
-			ism_far = vpl_radius*5;
-			num_val_clusters = 4;
+			ism_far = vpl_radius;
+			//num_val_clusters = 4;
 		}
 		else {
 			std::cout << "unknown argument or command, program will exit." << std::endl;
@@ -277,7 +313,7 @@ int main(int argc, char **argv) {
 		vpl_radius = 2000.f;
 		ism_near = 1.f;
 		ism_far = vpl_radius-500.f;
-		num_val_clusters = 4;
+		//num_val_clusters = 4;
 	}
 
 	//All shader declarations
@@ -314,6 +350,7 @@ int main(int argc, char **argv) {
 	Shader recompute_bounce(nullptr, nullptr, nullptr, "shaders/recompute_second_bounce.glsl");
 	Shader split_buff(nullptr, nullptr, nullptr, "shaders/split_gbuffer.glsl" );
 	Shader interleaved_shade(nullptr, nullptr, nullptr, "shaders/interleaved_shade.glsl");
+	Shader interleaved_shade2(nullptr, nullptr, nullptr, "shaders/interleaved_shade2.glsl");
 	Shader cbox_interleaved_shade(nullptr, nullptr, nullptr, "shaders/cbox_interleaved_shade.glsl");
 
 	Shader join_gbuffer(nullptr, nullptr, nullptr, "shaders/join_gbuffer.glsl");
@@ -343,7 +380,7 @@ int main(int argc, char **argv) {
 		shader_table["geometry pass"] = sponza_g_buffer;
 		shader_table["rsm pass"] = sponza_rsm_pass;
 		shader_table["parabolic rsm pass"] = layered_val_shadowmap;
-		shader_table["interleaved shading"] = interleaved_shade;
+		shader_table["interleaved shading"] = interleaved_shade2;
 	}
 	else if (path == cornell_path)
 	{
@@ -429,7 +466,7 @@ int main(int argc, char **argv) {
 	GLuint samplesTBO;
 
 	//RSM sampling pattern
-	std::vector<glm::vec2> samples = gen_uniform_samples(VPL_SAMPLES, 0.05f, 0.95f);
+	std::vector<glm::vec2> samples = gen_uniform_samples(VPL_SAMPLES, 0.05f, 0.95f);	
 
 	GLCall(glGenBuffers(1, &samplesBuffer));
 	GLCall(glBindBuffer(GL_TEXTURE_BUFFER, samplesBuffer));
@@ -439,20 +476,20 @@ int main(int argc, char **argv) {
 	GLCall(glBindTexture(GL_TEXTURE_BUFFER, samplesTBO));
 	GLCall(glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, samplesBuffer));
 
-	//unit circle Sampling Pattern
-	int num_normal_samples = 64;
-	std::vector<glm::vec2> normal_samples = gen_uniform_samples(num_normal_samples, 0.05f, 0.95f);
+	//unit circle Sampling Pattern	
+	std::vector<glm::vec2> normal_samples = gen_uniform_samples(NUM_2ND_BOUNCE, 0.05f, 0.95f);
 	
 	GLuint normal_samples_buffer;
 	GLuint normal_samples_tbo;
 	
-	for (int i = 0; i < num_normal_samples; i++) {
+	for (int i = 0; i < NUM_2ND_BOUNCE; i++) {
 		
 		glm::vec2 theta = PI_TWO * normal_samples[i];
 		glm::vec2 r = sqrt(normal_samples[i]);
-		float x = r.x * cos(theta.x);
-		float y = r.y * sin(theta.y);
+		float x = r.y * cos(theta.x);
+		float y = r.y * sin(theta.x);
 		normal_samples[i] = (glm::vec2(x,y)*0.5f) + glm::vec2(0.5f,0.5f);
+		//normal_samples[i] = glm::vec2(x, y);
 	}	
 		
 	GLCall(glGenBuffers(1, &normal_samples_buffer));
@@ -463,6 +500,32 @@ int main(int argc, char **argv) {
 	GLCall(glBindTexture(GL_TEXTURE_BUFFER, normal_samples_tbo));
 	GLCall(glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, normal_samples_buffer));		
 	
+	//paper illustrative
+	GLuint paper_vao;
+	GLuint buff;
+    std::vector<glm::vec2> nsamples = gen_uniform_samples(120, 0.05, 0.95f);
+	//for (int i = 0; i < 120; i++) {
+	//
+	//	glm::vec2 theta = PI_TWO * nsamples[i];
+	//	glm::vec2 r = sqrt(nsamples[i]);
+	//	float x = r.y * cos(theta.x);
+	//	float y = r.y * sin(theta.x);
+	//	nsamples[i] = (glm::vec2(x, y)*0.5f) + glm::vec2(0.5f, 0.5f);
+	//	//normal_samples[i] = glm::vec2(x, y);
+	//}
+	glGenBuffers(1, &buff);
+	glBindBuffer(GL_ARRAY_BUFFER, buff);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2)*nsamples.size(), nsamples.data(), GL_DYNAMIC_READ);
+	Shader paper_prog("shaders/paper_vertex.glsl","shaders/paper_frag.glsl");
+	////GLuint paper_vbo;
+	glGenVertexArrays(1, &paper_vao);
+	glBindVertexArray(paper_vao);
+	////glGenBuffers(1, &paper_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, buff);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+	glBindVertexArray(0);
+
 	//VAL sampling pattern TODO: Delete
 	GLuint val_sample_buffer;
 	GLuint val_sample_tbo;
@@ -625,11 +688,50 @@ int main(int argc, char **argv) {
 	//Tile Frustum generation decoupled from tiled frustum culling pass
 	//generate_tile_frustum(gen_frustum, frustum_planes, Wid, Hei, invProj);		
 	
-	
+	double ct0, ctf, cdelta_t;
 
 	//main loop
-	while (!w.should_close()) {			
-								
+	while (!w.should_close()) {
+
+		if (forward)
+		{
+			current_scene.camera->ProcessKeyboard(FORWARD, 1);
+			std::cout << to_string(current_scene.camera->Position) << std::endl;
+		}
+		if (left) 
+		{
+			current_scene.camera->ProcessKeyboard(LEFT, 1);
+			std::cout << to_string(current_scene.camera->Position) << std::endl;
+		}
+		if (back) 
+		{
+			current_scene.camera->ProcessKeyboard(BACKWARD, 1);
+			std::cout << to_string(current_scene.camera->Position) << std::endl;
+		}
+		if (right)
+		{
+			current_scene.camera->ProcessKeyboard(RIGHT, 1);
+			std::cout << to_string(current_scene.camera->Position) << std::endl;
+		}
+		
+		
+		if (light_rotate_left)
+		{
+			light_data.lightPos = glm::rotate(light_data.lightPos, glm::radians(0.05f), glm::vec3(1.0, 0.0, 0.0));					
+			light_data.lightDir = glm::normalize(light_data.lightPos - current_scene.bb_mid);
+			light_data.view = glm::lookAt(light_data.lightPos, current_scene.bb_mid, glm::vec3(0.0, 1.0, 0.2));
+			//std::cout << "rotating light to left" << std::endl;
+		}
+		if (light_rotate_right)
+		{
+			light_data.lightPos = glm::rotate(light_data.lightPos, glm::radians(-0.05f), glm::vec3(1.0, 0.0, 0.0));
+			light_data.lightDir = glm::normalize(light_data.lightPos - current_scene.bb_mid);
+			light_data.view = glm::lookAt(light_data.lightPos, current_scene.bb_mid, glm::vec3(0.0, 1.0, 0.2));
+			//std::cout << "rotating light to right" << std::endl;
+		}
+		
+
+
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
      	glDepthMask(GL_TRUE);
@@ -655,11 +757,11 @@ int main(int argc, char **argv) {
 		if (current_view == SCENE)
 		{						
 			//FILL LIGHT SSBO 
-			if (!is_filled) 
-			{  				
+			//if (!is_filled) 
+			//{  				
 				fill_lightSSBO(rsm_buffer, current_scene.camera->GetViewMatrix(), shader_table["sample rsm"], samplesTBO, lightSSBO, VPL_SAMPLES, vpl_radius);
-				is_filled = true;
-			}		
+				//is_filled = true;
+			//}		
 			
 			// GENERATE VALS
 			direct_vals.bindBase(0);
@@ -745,8 +847,8 @@ int main(int argc, char **argv) {
 
 			/* ------- NEW SSVP PROPAGATION ------- */	
 			//TODO - FIX PROPAGATION WITH TEXTURE ARRAYS
-			 if (first_frame)
-			{
+			// if (first_frame)
+			//{
 				//val_mats.upload_data(&pView);
 				backface_vpls.bindBase(0);
 				backface_vpl_count.bindBase(1);
@@ -762,7 +864,7 @@ int main(int argc, char **argv) {
 				//pass_vpl_count.unbind();
 				//val_mats.unbind();
 				first_frame = false;
-			}						
+			//}						
 
 			//debug print
 			//backface_vpl_count.bind();
@@ -814,17 +916,17 @@ int main(int argc, char **argv) {
 			split_gbuffer(split_buff, gbuffer, interleaved_buffer, num_rows, num_cols,  Wid, Hei);
 						
 			interleaved_shading(current_scene, draw_tex, shader_table["interleaved shading"], interleaved_buffer, rsm_buffer, val_array_fbo,
-				                light_data, VPL_SAMPLES, (num_val_clusters * num_normal_samples) , 
+				                light_data, VPL_SAMPLES, (num_val_clusters * NUM_2ND_BOUNCE) , 
 								num_val_clusters, ism_near, ism_far, see_bounce, Wid, Hei, num_rows,  num_cols);
 						
 			//join/gather split buffer	
 			join_buffers(join_gbuffer, draw_tex, final_tex, Wid, Hei, num_rows, num_cols);			
 
 			//discontinuity buffer 
-			//edge_detection(edge_program, gbuffer, edge_tex, Wid, Hei);
+			edge_detection(edge_program, gbuffer, edge_tex, Wid, Hei);
 			
 			//gaussian blur			
-			//bilateral_blur(xblur, yblur, final_tex, blur_tex, out_tex, edge_tex, (float)Wid, (float)Hei);			
+			bilateral_blur(xblur, yblur, final_tex, blur_tex, out_tex, edge_tex, (float)Wid, (float)Hei);			
 			
 			lightSSBO.unbind();		
 			direct_vals.unbind();
@@ -859,7 +961,7 @@ int main(int argc, char **argv) {
 				ssbo_debug.use();
 				glm::mat4 MVP = current_scene.proj * current_scene.camera->GetViewMatrix();
 				ssbo_debug.setMat4("MVP", MVP);
-				ssbo_debug.setFloat("size", 10.0f);
+				ssbo_debug.setFloat("size", 15.0f);
 				ssbo_debug.setVec4("vpl_color", glm::vec4(1.0, 0.0, 0.0, 1.0));
 				glDrawArrays(GL_POINTS, 0, VPL_SAMPLES);
 				GLCall(glBindVertexArray(0));						
@@ -892,7 +994,12 @@ int main(int argc, char **argv) {
 		else if(current_view == SHADOW_MAP)
 		{				
 			/* ---- DEBUG VIEW ---- */		
-			render_debug_view(w, shader_table["view depth"], screen_quad, light_data, rsm_buffer);			
+			render_debug_view(w, shader_table["view depth"], screen_quad, light_data, rsm_buffer);		
+
+			paper_prog.use();
+			glBindVertexArray(paper_vao);
+			glDrawArrays(GL_POINTS, 0, 120);
+			glBindVertexArray(0);
 			
 		}
 		else if(current_view == PARABOLIC) {
@@ -903,15 +1010,15 @@ int main(int argc, char **argv) {
 			view_layered.setFloat("near", ism_near);
 			view_layered.setFloat("far", ism_far);
 			view_layered.setInt("layer", current_layer);
-
+			
 			GLCall(glActiveTexture(GL_TEXTURE0));
 			view_layered.setInt("val_pos", 0);
 			GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, val_array_fbo.pos));
-
+			
 			GLCall(glActiveTexture(GL_TEXTURE1));
 			view_layered.setInt("val_normal", 1);
 			GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, val_array_fbo.normal));
-
+			
 			GLCall(glActiveTexture(GL_TEXTURE2));
 			view_layered.setInt("val_color", 2);
 			GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, val_array_fbo.albedo));
@@ -919,26 +1026,37 @@ int main(int argc, char **argv) {
 			GLCall(glActiveTexture(GL_TEXTURE3));
 			view_layered.setInt("val_depth", 3);
 			GLCall(glBindTexture(GL_TEXTURE_2D_ARRAY, val_array_fbo.depth_map));
-
+			
 			screen_quad.renderQuad();
+
+			//paper_prog.use();
+			//glBindVertexArray(paper_vao);
+			//glDrawArrays(GL_POINTS, 0, 120);
+			//glBindVertexArray(0);
 
 		}
 		
 		//delta time and gui frametime renderer;
-		{
-			tf = glfwGetTime();
-			delta_t = (tf - t0) * 1000.0;
-			gdelta_t = delta_t;
-
-			if (time_dat.frame_count < FRAME_AVG)
-				time_dat.data[time_dat.frame_count++] = delta_t;
-			else
-				time_dat.frame_count = 0;
-			
-			double fps = avg_fps(time_dat);
-			t0 = tf;
-			render_gui(delta_t, fps);
-		}
+		//{
+		//	tf = glfwGetTime();
+		//	delta_t = (tf - t0) * 1000.0;
+		//	gdelta_t = delta_t;
+		//
+		//	if (time_dat.frame_count < FRAME_AVG)			
+		//		time_dat.data[time_dat.frame_count++] = delta_t;
+		//	else
+		//		time_dat.frame_count = 0;
+		//
+		//	if (ms_dat.frame_count < FRAME_AVG)
+		//		ms_dat.data[ms_dat.frame_count++] = delta_t;
+		//	else
+		//		ms_dat.frame_count = 0;
+		//	
+		//	double fps = avg_fps(time_dat);
+		//	double ms = avg_ms(ms_dat);
+		//	t0 = tf;
+		//	render_gui(ms, fps);
+		//}
 		
 
 		w.swap();	
@@ -965,27 +1083,67 @@ void kbfunc(GLFWwindow* window, int key, int scan, int action, int mods) {
 
 	if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT))
 	{		
-		current_scene.camera->ProcessKeyboard(FORWARD, 1);		
+		forward = true;
+		
+		//current_scene.camera->ProcessKeyboard(FORWARD, 1);		
 		//std::cout << to_string(current_scene.camera->Position) << std::endl;
+	}
+	else if (key == GLFW_KEY_W && action == GLFW_RELEASE)
+	{
+		forward = false;
 	}
 
 	if (key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT))
 	{
-		current_scene.camera->ProcessKeyboard(LEFT, 1);		
+		left = true;
+		//current_scene.camera->ProcessKeyboard(LEFT, 1);		
 		//std::cout << to_string(current_scene.camera->Position) << std::endl;
+	}
+	else if (key == GLFW_KEY_A && action == GLFW_RELEASE)
+	{
+		left = false;
 	}
 
 	if (key == GLFW_KEY_S && (action == GLFW_PRESS || action == GLFW_REPEAT))
 	{
-		current_scene.camera->ProcessKeyboard(BACKWARD, 1);		
+		back = true;
+		//current_scene.camera->ProcessKeyboard(BACKWARD, 1);		
 		//std::cout << to_string(current_scene.camera->Position) << std::endl;
+	}
+	else if (key == GLFW_KEY_S && action == GLFW_RELEASE)
+	{
+		back = false;
 	}
 
 	if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
 	{
-		current_scene.camera->ProcessKeyboard(RIGHT, 1);		
+		right = true;
+		//current_scene.camera->ProcessKeyboard(RIGHT, 1);		
 		//std::cout << to_string(current_scene.camera->Position) << std::endl;
 	}
+	else if (key == GLFW_KEY_D && action == GLFW_RELEASE)
+	{
+		right = false;
+	}
+	
+	if (key == GLFW_KEY_T && (action == GLFW_PRESS || action == GLFW_REPEAT))
+	{
+		light_rotate_left = true;		
+	}
+	else if (key == GLFW_KEY_T && action == GLFW_RELEASE)
+	{
+		light_rotate_left = false;
+	}
+
+	if (key == GLFW_KEY_Y && (action == GLFW_PRESS || action == GLFW_REPEAT))
+	{
+		light_rotate_right = true;
+	}
+	else if (key == GLFW_KEY_Y && action == GLFW_RELEASE)
+	{
+		light_rotate_right = false;
+	}
+
 
 
 	if (key == GLFW_KEY_B && (action == GLFW_PRESS)) {

@@ -1,5 +1,6 @@
 #version 430
 
+//rel num val clusters
 layout(local_size_x = 4) in;
 
 layout(binding = 0) uniform sampler2D rsm_position;

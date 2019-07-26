@@ -8,10 +8,8 @@ layout(binding = 2) uniform sampler2D galbedo;
 layout(binding = 3) uniform sampler2D gdepth;
 layout(binding = 4) uniform sampler2D directionalLightMap;
 layout(binding = 5) uniform sampler2DArray val_shadowmaps;
-
 uniform float parabola_near;
 uniform float parabola_far;
-
 uniform int num_rows;
 uniform int num_cols;
 uniform int num_first_bounce;
@@ -19,46 +17,36 @@ uniform int num_second_bounce;
 uniform int num_vals;
 uniform int wid;
 uniform int hei;
-
 uniform bool see_bounce;
-
 //directional light - sun direction
 uniform vec3 sun_dir;
 uniform vec3 eye_pos;
 uniform mat4 lightspacemat;
-
 //global model matrix 
 uniform mat4 M;
-
 #define DIRECTIONAL_LIGHT_SIZE 4
-#define VAL_LIGHT_SIZE 3
-
+#define VAL_LIGHT_SIZE 4
 #define NUM_CLUSTERS 4
 layout(std140, binding = 0) uniform vpl_matrices{
 	mat4 parabolic_mats[NUM_CLUSTERS];
 };
-
 struct plight {
 	vec4 p; //position + radius
 	vec4 n; //normal + cluster index
 	vec4 c; //color	
 };
-
 //first bounce list
 layout(std430, binding = 1) buffer lightSSBO {
 	plight list[];
 };
-
 //val list
 layout(std430, binding = 2) buffer direct_vals {
 	plight val_list[];
 };
-
 //second bounce list
 layout(std430, binding = 3) buffer backface_vpls {
 	plight back_vpl_list[];
 };
-
 //second bounce count
 layout(std430, binding = 4) buffer backface_vpl_count {
 	unsigned int back_vpl_count;
@@ -73,6 +61,11 @@ float get_attenuation(float light_radius, float dist) {
 	attenuation = (attenuation - cutoff) / (1 - cutoff);
 	attenuation = max(attenuation, 0.0);
 	return (attenuation);
+}
+
+float atten_(float dist)
+{
+	return 1.0 / (1.0 + 0.0014*dist + 0.000007*dist*dist);
 }
 
 float DirectionalShadow(vec4 fragPosLS, vec3 norm) {
@@ -121,7 +114,8 @@ vec3 shade_point(plight light, vec3 ppos, vec3 pnormal)
 
 	float dist = length(ppos - light.p.xyz);
 
-	float atten = get_attenuation(light.p.w, length(ppos - light.p.xyz));
+	//float atten = get_attenuation(light.p.w, length(ppos - light.p.xyz));
+	float atten = atten_(length(ppos-light.p.xyz));
 
 	vec3 ltop = normalize(light.p.xyz - ppos); //light to pos
 	vec3 ptol = normalize(ppos - light.p.xyz); //pos to light
@@ -245,6 +239,9 @@ float do_parabolicPCSS(int light_size, vec4 ws_pos, float layer)
 	float bias = 0.05f;
 	
 	float shadow = 0.0;
+	//if (size < 0) size = 0;
+	//if (size > 10) size = 10;
+
 	int filter_size = int(size);
 
 	vec2 curr_xy = tex_coord;
@@ -262,6 +259,171 @@ float do_parabolicPCSS(int light_size, vec4 ws_pos, float layer)
 }
 
 layout(rgba16f, binding = 0) uniform image2D imageBuffer;
+
+//------------------------------------------------------------------------------//
+
+
+vec4 computeDiscontinuity(vec4 shadowCoord, float sceneDepth, float layer = -1)
+{
+
+	vec4 dir = vec4(0.0, 0.0, 0.0, 0.0);
+	//x = left; y = right; z = bottom; w = top
+	vec2 shadowMapStep;
+	if (layer == -1) shadowMapStep = vec2(1.0 / textureSize(directionalLightMap, 0).xy);
+	else shadowMapStep = vec2(1.0 / textureSize(val_shadowmaps, 0).xy);
+
+	shadowCoord.x -= shadowMapStep.x;
+	float distanceFromLight;
+	if (layer == -1) distanceFromLight = texture(directionalLightMap, shadowCoord.xy).r;
+	else distanceFromLight = texture(val_shadowmaps, vec3(shadowCoord.xy, layer)).r;
+	dir.x = sceneDepth > distanceFromLight ? 0.0f : 1.0f;
+
+	shadowCoord.x += 2.0 * shadowMapStep.x;
+	if (layer == -1) distanceFromLight = texture(directionalLightMap, shadowCoord.xy).r;
+	else distanceFromLight = texture(val_shadowmaps, vec3(shadowCoord.xy, layer)).r;
+	dir.y = sceneDepth > distanceFromLight ? 0.0f : 1.0f;
+
+	shadowCoord.x -= shadowMapStep.x;
+	shadowCoord.y += shadowMapStep.y;
+	if (layer == -1) distanceFromLight = texture(directionalLightMap, shadowCoord.xy).r;
+	else distanceFromLight = texture(val_shadowmaps, vec3(shadowCoord.xy, layer)).r;
+	dir.z = sceneDepth > distanceFromLight ? 0.0f : 1.0f;
+
+	shadowCoord.y -= 2.0 * shadowMapStep.y;
+	if (layer == -1) distanceFromLight = texture(directionalLightMap, shadowCoord.xy).r;
+	else distanceFromLight = texture(val_shadowmaps, vec3(shadowCoord.xy, layer)).r;
+	dir.w = sceneDepth > distanceFromLight ? 0.0f : 1.0f;
+
+	return abs(dir - 1.0);
+
+}
+
+float computeRelativeDistance(vec4 shadowCoord, vec2 dir, float c, float sceneDepth, float layer)
+{
+
+	vec4 tempShadowCoord = shadowCoord;
+	float foundSilhouetteEnd = 0.0;
+	float distance = 0.0;
+	vec2 shadowMapStep;
+
+	if (layer == -1) shadowMapStep = vec2(1.0 / textureSize(directionalLightMap, 0).xy);
+	else shadowMapStep = vec2(1.0 / textureSize(val_shadowmaps, 0).xy);
+
+	vec2 step = dir * shadowMapStep;
+	tempShadowCoord.xy += step;
+
+	float distanceFromLight;
+	for (int it = 0; it < 256; it++) {
+
+		if (layer == -1) distanceFromLight = texture(directionalLightMap, tempShadowCoord.xy).r;
+		else distanceFromLight = texture(val_shadowmaps, vec3(tempShadowCoord.xy, layer)).r;
+
+		float center = sceneDepth > distanceFromLight ? 0.0f : 1.0f;
+		bool isCenterUmbra = !bool(center);
+
+		if (isCenterUmbra) {
+			foundSilhouetteEnd = 1.0;
+			break;
+		}
+		else {
+			vec4 d = computeDiscontinuity(tempShadowCoord, sceneDepth, layer);
+			if ((d.r + d.g + d.b + d.a) == 0.0) break;
+		}
+
+		distance++;
+		tempShadowCoord.xy += step;
+
+	}
+	distance = distance + (1.0 - c);
+	return mix(-distance, distance, foundSilhouetteEnd);
+
+}
+
+vec4 computeRelativeDistance(vec4 shadowCoord, vec2 c, float sceneDepth, float layer = -1)
+{
+	float dl = computeRelativeDistance(shadowCoord, vec2(-1, 0), (1.0 - c.x), sceneDepth, layer);
+	float dr = computeRelativeDistance(shadowCoord, vec2(1, 0), c.x, sceneDepth, layer);
+	float db = computeRelativeDistance(shadowCoord, vec2(0, -1), (1.0 - c.y), sceneDepth, layer);
+	float dt = computeRelativeDistance(shadowCoord, vec2(0, 1), c.y, sceneDepth, layer);
+	return vec4(dl, dr, db, dt);
+}
+
+float normalizeRelativeDistance(vec2 dist) {
+
+	float T = 1;
+	if (dist.x < 0.0 && dist.y < 0.0) T = 0;
+	if (dist.x > 0.0 && dist.y > 0.0) T = -2;
+
+	float length = min(abs(dist.x) + abs(dist.y), float(256));
+	return abs(max(T * dist.x, T * dist.y)) / length;
+}
+
+vec2 normalizeRelativeDistance(vec4 dist)
+{
+	vec2 r;
+	r.x = normalizeRelativeDistance(vec2(dist.x, dist.y));
+	r.y = normalizeRelativeDistance(vec2(dist.z, dist.w));
+	return r;
+}
+
+float revectorizeShadow(vec2 r)
+{
+	if ((r.x * r.y > 0) && (1.0 - r.x > r.y)) return 0.0;
+	else return 1.0;
+}
+
+
+float DirectionalRBSM(vec4 fragPosLS, vec3 norm) {
+
+	vec3 proj = fragPosLS.xyz / fragPosLS.w;
+	proj = proj * 0.5 + 0.5;
+	vec4 shadowCoord = vec4(proj, 1.0);
+
+	vec3 N = normalize(norm);
+	float bias = max(0.05 * (1.0 - dot(N, sun_dir)), 0.005);
+	float distanceFromLight = texture(directionalLightMap, shadowCoord.xy).r;
+	float shadow = (shadowCoord.z - bias) > distanceFromLight ? 0.0f : 1.0f;
+	if (shadow == 0.0f) return shadow;
+
+	vec4 d = computeDiscontinuity(shadowCoord, shadowCoord.z - bias);
+	if ((d.r + d.g + d.b + d.a) == 0.0) return 1.0;
+	else if ((d.r + d.g) == 2.0 || (d.b + d.a) == 2.0) return 0.0;
+
+	vec2 c = fract(vec2(shadowCoord.x * float(textureSize(directionalLightMap, 0).x), shadowCoord.y * float(textureSize(directionalLightMap, 0).y)));
+	vec4 dist = computeRelativeDistance(shadowCoord, c, shadowCoord.z - bias);
+	vec2 r = normalizeRelativeDistance(dist);
+	return revectorizeShadow(r);
+
+}
+
+#define EPSILON2 0.1f
+float ParabolicRBSM(vec4 worldPos, mat4 lightV, float layer) {
+
+	vec4 lpos = lightV * M * worldPos;
+	float L = length(lpos.xyz);
+	lpos /= L;
+
+	vec4 shadowCoord = vec4(0.0);
+	shadowCoord.x = (lpos.x / (1.0f + lpos.z))*0.5f + 0.5f;
+	shadowCoord.y = (lpos.y / (1.0f + lpos.z))*0.5f + 0.5f;
+
+	float sceneDepth = (L - parabola_near) / (parabola_far - parabola_near);
+	float distanceFromLight = texture(val_shadowmaps, vec3(shadowCoord.xy, layer)).r;
+	float shadow = (sceneDepth - EPSILON2) > distanceFromLight ? 0.0f : 1.0f;
+	if (shadow == 0.0f) return shadow;
+
+	vec4 d = computeDiscontinuity(shadowCoord, sceneDepth - EPSILON2, layer);
+	if ((d.r + d.g + d.b + d.a) == 0.0) return 1.0;
+	else if ((d.r + d.g) == 2.0 || (d.b + d.a) == 2.0) return 0.0;
+
+	vec2 c = fract(vec2(shadowCoord.x * float(textureSize(val_shadowmaps, 0).x), shadowCoord.y * float(textureSize(val_shadowmaps, 0).y)));
+	vec4 dist = computeRelativeDistance(shadowCoord, c, sceneDepth - EPSILON2, layer);
+	vec2 r = normalizeRelativeDistance(dist);
+	return revectorizeShadow(r);
+
+}
+//------------------------------------------------------------------------------//
+
 
 void main() {
 
@@ -296,8 +458,10 @@ void main() {
 	vec3 specular = vec3(spec_val * spec);
 
 	vec4 light_space_pos = lightspacemat * vec4(frag_pos.xyz, 1.0);
-	//float in_shadow = DirectionalShadow(light_space_pos, frag_n.xyz);
-	float in_shadow = do_directionalPCSS(DIRECTIONAL_LIGHT_SIZE, light_space_pos, frag_n.xyz);
+	float in_shadow = DirectionalShadow(light_space_pos, frag_n.xyz);
+	//float in_shadow = DirectionalRBSM(light_space_pos, frag_n.xyz);
+
+	//float in_shadow = do_directionalPCSS(DIRECTIONAL_LIGHT_SIZE, light_space_pos, frag_n.xyz);
 
 	vec3 directional = (in_shadow * (diffuse + specular)) * vec3(1.0);
 	
@@ -308,19 +472,25 @@ void main() {
 		plight curr_light = list[flat_id + i];	
 	
 		float layer = curr_light.n.w;
-		float ret = ParabolicShadow(frag_pos, parabolic_mats[int(layer)], layer);
-		//float ret = do_parabolicPCSS(VAL_LIGHT_SIZE, frag_pos, layer);
+		float ret = ParabolicShadow(vec4(frag_pos.xyz, 1.0), parabolic_mats[int(layer)], layer);
+		//float ret = do_parabolicPCSS(VAL_LIGHT_SIZE, vec4(frag_pos.xyz, 1.0), layer);
 	
 		//if (ret > 0.0f)
 		output_color += ret* shade_point(curr_light, frag_pos.xyz, frag_n.xyz);
 	}	
-
-	int lights_per_tile2 = num_second_bounce/ (num_rows * num_cols);
-	for (int i = 0; i < lights_per_tile2; i++)
+	
+	if (see_bounce)
 	{
-		plight curr_light = back_vpl_list[flat_id + i];
-		output_color += shade_point(curr_light, frag_pos.xyz, frag_n.xyz);
+		int lights_per_tile2 = num_second_bounce / (num_rows * num_cols);
+		for (int i = 0; i < lights_per_tile2; i++)
+		{
+			plight curr_light = back_vpl_list[flat_id + i];
+			output_color += (shade_point(curr_light, frag_pos.xyz, frag_n.xyz) * 0.25);
+		}
 	}
+
+	output_color *= 0.30;
+	
 
 	ivec2 fpos = ivec2(gl_GlobalInvocationID.xy);
 	imageStore(imageBuffer, fpos, vec4(output_color, 1.0));

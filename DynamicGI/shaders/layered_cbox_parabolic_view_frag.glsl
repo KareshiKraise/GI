@@ -14,7 +14,7 @@ in GS_OUT{
 
 uniform mat4 M;
 
-#define NUM_CLUSTERS 4
+#define NUM_CLUSTERS 8
 layout(std140, binding = 0) uniform vpl_matrices{
 	mat4 parabolic_mats[NUM_CLUSTERS];
 };

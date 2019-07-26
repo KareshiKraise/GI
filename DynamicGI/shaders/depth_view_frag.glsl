@@ -23,7 +23,8 @@ float LinearizeDepth(float depth)
 void main() {
 	
 	//view texture
-	//fragColor = vec4(texture2D(screen_tex, tex).rgb, 1.0);
+	//float val = texture2D(screen_tex, tex).r;
+	//fragColor = vec4(val, val, val, 1.0);
 	
 	//view standard depth map
 	//float depthVal = LinearizeDepth(texture2D(screen_tex, tex).r);

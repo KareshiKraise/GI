@@ -51,31 +51,34 @@ void main()
 
 	barrier();
 
-	plight current_light = vpl_list[gl_LocalInvocationIndex];
-	
-	float delta_d = length(first_val_list[0].p.xyz - current_light.p.xyz);
-	float delta_a = acos(dot(normalize(first_val_list[0].n.xyz), normalize(current_light.n.xyz)));
-	float dist = delta_d * wx + delta_a * wa;
-	unsigned int closer_val_index = 0;
+	if (gl_LocalInvocationIndex >= num_vals)
+	{
 
-	for (int i = 1; i < num_vals; i++) {
-		delta_d = length(first_val_list[i].p.xyz - current_light.p.xyz);
-		delta_a = dot(normalize(first_val_list[i].n.xyz), normalize(current_light.n.xyz));
-		float aux_dist = delta_d * wx + delta_a * wa;
+		plight current_light = vpl_list[gl_LocalInvocationIndex];
 
-		if (dist > aux_dist)
-		{
-			dist = aux_dist;
-			closer_val_index = i;
+		float delta_d = length(first_val_list[0].p.xyz - current_light.p.xyz);
+		float delta_a = acos(dot(normalize(first_val_list[0].n.xyz), normalize(current_light.n.xyz)));
+		float dist = delta_d * wx + delta_a * wa;
+		unsigned int closer_val_index = 0;
+
+		for (int i = 1; i < num_vals; i++) {
+			delta_d = length(first_val_list[i].p.xyz - current_light.p.xyz);
+			delta_a = dot(normalize(first_val_list[i].n.xyz), normalize(current_light.n.xyz));
+			float aux_dist = delta_d * wx + delta_a * wa;
+
+			if (dist > aux_dist)
+			{
+				dist = aux_dist;
+				closer_val_index = i;
+			}
 		}
+
+		unsigned int idx = atomicAdd(vpl_count[closer_val_index], 1);
+
+		unsigned int to_insert = (vpl_samples * closer_val_index) + idx;
+
+		vpl_to_val[to_insert] = gl_LocalInvocationIndex;
 	}
-		
-	unsigned int idx = atomicAdd(vpl_count[closer_val_index], 1);
-
-	unsigned int to_insert = (vpl_samples * closer_val_index) + idx;
-
-	vpl_to_val[to_insert] = gl_LocalInvocationIndex;
-
 }
 
 

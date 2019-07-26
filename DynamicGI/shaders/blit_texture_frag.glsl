@@ -31,12 +31,13 @@ void main(){
 	vec3 albedo = texture(texAlbedo, tex).rgb;	
 	vec3 d = texture(texImage1, tex).rgb;	
 	
-	d = d * albedo;	
+	d = d * 4 * albedo;	
 	const float gamma = 2.2f;	
 	vec3 mapped = vec3(1.0f) - exp(-d * 3.f);
 	mapped = pow(mapped, vec3(1.0f/gamma));	
 	
 	color = vec4(mapped, 1.0);
+	
 	gl_FragDepth = texture(depthImage, tex).r;
 	
 
