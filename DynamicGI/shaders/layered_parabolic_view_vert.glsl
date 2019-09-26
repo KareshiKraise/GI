@@ -12,7 +12,7 @@ out VS_OUT {
 
 void main()
 {
-	vs_out.pos = Pos;
+	vs_out.pos = Pos;// +normalize(Normal)*30.0f;
 	vs_out.norm = Normal;
 	vs_out.tex = Tex;
 }
