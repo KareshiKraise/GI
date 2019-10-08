@@ -498,7 +498,7 @@ void do_parabolic_rsm(const glm::mat4& View, framebuffer& parabolic_sm, Shader& 
 }
 
 
-
+//currently generates only 4 clusters, must change compute shader to make it adapt to an arbitrary number
 void generate_vals(Shader& gen_vals, const framebuffer& rsm_buffer, GLuint val_sample_tbo, int num_vpls, int num_clusters) {
 	gen_vals.use();
 	GLCall(glActiveTexture(GL_TEXTURE0));

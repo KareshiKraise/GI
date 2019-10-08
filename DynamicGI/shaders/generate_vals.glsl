@@ -10,7 +10,7 @@ layout(binding = 2) uniform sampler2D rsm_flux;
 uniform int num_vpls;
 uniform int num_clusters;
 
-//screen samples between 0.0 and 1.0
+//screen samples between 0.0 and 1.0 -- not being used as of now
 layout(rg32f, binding = 0) uniform imageBuffer samples;
 
 struct plight {
@@ -30,14 +30,12 @@ layout(std430, binding = 1) buffer vpl_buffer {
 };
 
 void main()
-{
-	
+{	
 	//vec2 samp = imageLoad(samples, int(gl_LocalInvocationIndex)).xy;
 	//vec4 pos = texture2D(rsm_position, samp);
 	//vec4 nor = texture2D(rsm_normal, samp);
 	//vec4 col = texture2D(rsm_flux, samp);
-
-
+	
 	//the k-val is the (k*N/M)th vpl
 	uint k = gl_LocalInvocationIndex;
 	uint N = num_vpls;

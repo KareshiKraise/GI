@@ -9,8 +9,6 @@ int num_val_clusters = 4;
 int viewSamples = 256;
 int vpl_budget = 256;
 
-
-
 //scene and model paths
 const char* sponza_path = "models/sponza/sponza.obj";
 const char* sphere_path = "models/sphere/sphere.obj";
@@ -774,6 +772,7 @@ int main(int argc, char **argv) {
 	//main loop
 	while (!w.should_close()) {
 
+		//Input checking
 		if (forward)
 		{
 			current_scene.camera->ProcessKeyboard(FORWARD, 1);
@@ -794,8 +793,7 @@ int main(int argc, char **argv) {
 			current_scene.camera->ProcessKeyboard(RIGHT, 1);
 			//std::cout << to_string(current_scene.camera->Position) << std::endl;
 		}
-		
-		
+				
 		if (light_rotate_left)
 		{
 			light_data.lightPos = glm::rotate(light_data.lightPos, glm::radians(0.05f), glm::vec3(1.0, 0.0, 0.0));					
@@ -811,7 +809,6 @@ int main(int argc, char **argv) {
 			//std::cout << "rotating light to right" << std::endl;
 		}
 		
-
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
      	glDepthMask(GL_TRUE);
@@ -861,10 +858,8 @@ int main(int argc, char **argv) {
 			GLCall(glDispatchCompute(rsm_res/16, rsm_res / 16, 1));
 			GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS))			
 			BRSM_ssbo.unbind();
-			viewportSamples.unbind();
-						
+			viewportSamples.unbind();						
 			//------------------------------------------------------//
-
 			//compute CDF			
 			build_cdf_col.use();
 			//GLCall(glActiveTexture(GL_TEXTURE0));
@@ -878,9 +873,7 @@ int main(int argc, char **argv) {
 			GLCall(glDispatchCompute((rsm_res / 16), 1, 1));
 			GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
 			BRSM_ssbo.unbind();
-			BRSM_cdf_ssbo.unbind();
-						
-			
+			BRSM_cdf_ssbo.unbind();					
 			//compute row cdf
 			build_cdf_row.use();			
 			build_cdf_row.setInt("size", int(rsm_res));
@@ -892,8 +885,7 @@ int main(int argc, char **argv) {
 			GLCall(glDispatchCompute(1, 1, 1));
 			GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
 			BRSM_cdf_ssbo.unbind();
-			BRSM_cdf_row_ssbo.unbind();
-						
+			BRSM_cdf_row_ssbo.unbind();						
 			//sample vpls
 			lightSSBO.bindBase(0);
 			BRSM_cdf_ssbo.bindBase(1);
@@ -919,99 +911,75 @@ int main(int argc, char **argv) {
 			lightSSBO.unbind();
 			BRSM_cdf_ssbo.unbind();
 			BRSM_cdf_row_ssbo.unbind();
-						
-			if (dr)
-			{
-				lightSSBO.bind();
-				point_light *vpl = (point_light*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-				glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);				
-				lightSSBO.unbind();
-				for (int i = 0; i < vpl_budget; i++)
-				{
-					std::cout << "vpl no: " << i << " position: " <<glm::to_string(vpl[i].p) << std::endl;					
-				}
-				dr = false;
-			}
 
-			//GLCall(glBindImageTexture(0, BRSM_CDF_TBO, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F));
-
-			//biDirRSM.bind();
-			//float *dat = (float*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-			//						
-			//cdf[0] = dat[0];
-			//for (int i = 1; i < (rsm_res * rsm_res); ++i)
+			//debug print
+			//if (dr)
 			//{
-			//	cdf[i] = cdf[i - 1] + dat[i];				
-			//}
-			//biDirRSM.unbind();
+			//	lightSSBO.bind();
+			//	point_light *vpl = (point_light*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+			//	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);				
+			//	lightSSBO.unbind();
+			//	for (int i = 0; i < vpl_budget; i++)
+			//	{
+			//		std::cout << "vpl no: " << i << " position: " <<glm::to_string(vpl[i].p) << std::endl;					
+			//	}
+			//	dr = false;
+			//}			
 			
-			//brsm_cdf.bind();
-			//float* updata = (float*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-			//memcpy(updata, cdf.data(), rsm_res*rsm_res * sizeof(GLfloat));
-			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-			//brsm_cdf.unbind();
-			//
-			////generate vpls from cdf
-			//lightSSBO.bindBase(0);
-			//biDirRSM.bindBase(1);
-			//brsm_cdf.bindBase(2);
-			//sample_VPLs.use();
-			//sample_VPLs.setInt("num_vpls", vpl_budget);
-			//sample_VPLs.setFloat("vpl_radius", vpl_radius);
-			//sample_VPLs.setInt("dim", rsm_res);
-			//GLCall(glActiveTexture(GL_TEXTURE0));
-			//GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.pos));
-			//sample_VPLs.setInt("rsm_pos", 0);
-			//GLCall(glActiveTexture(GL_TEXTURE1));
-			//GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.normal));
-			//sample_VPLs.setInt("rsm_normal", 1);
-			//GLCall(glActiveTexture(GL_TEXTURE2));
-			//GLCall(glBindTexture(GL_TEXTURE_2D, rsm_buffer.albedo));
-			//sample_VPLs.setInt("rsm_flux", 2);
-			//GLCall(glDispatchCompute(1, 1, 1));
-			//GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS))
-			//brsm_cdf.unbind();
-			//biDirRSM.unbind();
-			//lightSSBO.unbind();
-
 			//------------------------------------------------------//
 						
-			//FILL LIGHT SSBO 				
+			//FILL LIGHT SSBO -- OLD ROUTINE PRE-BRSM
 			//fill_lightSSBO(rsm_buffer, current_scene.camera->GetViewMatrix(), shader_table["sample rsm"], samplesTBO, lightSSBO, VPL_SAMPLES, vpl_radius);
 						
 			// GENERATE VALS
-			//direct_vals.bindBase(0);
-			//lightSSBO.bindBase(1);
-			//generate_vals(gen_vals, rsm_buffer, val_sample_tbo, VPL_SAMPLES, num_val_clusters);
-			//direct_vals.unbind();
-			//lightSSBO.unbind();
+			direct_vals.bindBase(0);
+			lightSSBO.bindBase(1);
+			generate_vals(gen_vals, rsm_buffer, val_sample_tbo, vpl_budget, num_val_clusters);
+			direct_vals.unbind();
+			lightSSBO.unbind();	
+
+			//debug print			
+			direct_vals.bind();
+			point_light *vpl = (point_light*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+			for (int i = 0; i < num_val_clusters; i++)
+			{
+				std::cout << "val no: " << i << " position: " << glm::to_string(vpl[i].p) << std::endl;
+			}
+			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+			direct_vals.unbind();
+			
 
 			/* --- BEGIN CLUSTER PASS ---*/			
-			//direct_vals.bindBase(0);
-			//lightSSBO.bindBase(1);
-			//vpls_per_val.bindBase(2);
-			//count_vpl_per_val.bindBase(3);						
-			//bool first_cluster_pass = true;
-			//for (int i = 0; i < num_cluster_pass; i++)
-			//{
-			//	//distance to vals
-			//	calc_distance_to_val(clusterize_vals, num_val_clusters, VPL_SAMPLES, first_cluster_pass);
-			//	//update vals
-			//	update_cluster_centers(update_vals, VPL_SAMPLES);
-			//	first_cluster_pass = false;
-			//}
-			//direct_vals.unbind();
-			//lightSSBO.unbind();
-			//vpls_per_val.unbind();
-			//count_vpl_per_val.unbind();
+			direct_vals.bindBase(0);
+			lightSSBO.bindBase(1);
+			vpls_per_val.bindBase(2);
+			count_vpl_per_val.bindBase(3);						
+			bool first_cluster_pass = true;
+			for (int i = 0; i < num_cluster_pass; i++)
+			{
+				//distance to vals
+				calc_distance_to_val(clusterize_vals, num_val_clusters, vpl_budget, first_cluster_pass);
+				//update vals
+				update_cluster_centers(update_vals, vpl_budget);
+				first_cluster_pass = false;
+			}
+			direct_vals.unbind();
+			lightSSBO.unbind();
+			vpls_per_val.unbind();
+			count_vpl_per_val.unbind();
+
 			//debug print
-			//vpls_per_val.bind();
-			//unsigned int *test = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-			//vpls_per_val.unbind();
-			//for(int i =0; i < num_val_clusters; i++)
-			//	std::cout << "num vpls in " << i << " cluster: " << test[i] << std::endl;						
+			vpls_per_val.bind();
+			unsigned int *test = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+			vpls_per_val.unbind();
+			for(int i =0; i < num_val_clusters; i++)
+				std::cout << "num vpls in " << i << " cluster: " << test[i] << std::endl;	
+
+			
+				
+
+
 			/* --- END CLUSTER PASS ---*/	
 			
 			//* ---- BEGIN VAL SM PASS ---- */
@@ -1175,15 +1143,15 @@ int main(int argc, char **argv) {
 				ssbo_debug.setMat4("MVP", MVP);
 				ssbo_debug.setFloat("size", 15.0f);
 				ssbo_debug.setVec4("vpl_color", glm::vec4(1.0, 0.0, 0.0, 1.0));
-				glDrawArrays(GL_POINTS, 0, VPL_SAMPLES);
+				glDrawArrays(GL_POINTS, 0, vpl_budget);
 				GLCall(glBindVertexArray(0));
-				//GLCall(glBindVertexArray(cluster_vao));
-				//ssbo_debug.use();
-				//MVP = current_scene.proj * current_scene.camera->GetViewMatrix();
-				//ssbo_debug.setMat4("MVP", MVP);
-				//ssbo_debug.setFloat("size", 10.0f);
-				//ssbo_debug.setVec4("vpl_color", glm::vec4(0.0, 1.0, 0.0, 1.0));
-				//glDrawArrays(GL_POINTS, 0, num_val_clusters);
+				GLCall(glBindVertexArray(cluster_vao));
+				ssbo_debug.use();
+				MVP = current_scene.proj * current_scene.camera->GetViewMatrix();
+				ssbo_debug.setMat4("MVP", MVP);
+				ssbo_debug.setFloat("size", 10.0f);
+				ssbo_debug.setVec4("vpl_color", glm::vec4(0.0, 1.0, 0.0, 1.0));
+				glDrawArrays(GL_POINTS, 0, num_val_clusters);
 				//GLCall(glBindVertexArray(0));	
 				//backface_vpl_count.bind();
 				//unsigned int *a = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
