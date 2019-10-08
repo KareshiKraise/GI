@@ -50,9 +50,10 @@ void main(){
 		avg_n += curr_light.n.xyz;
 		avg_c += curr_light.c.xyz;
 	}
-	avg_p /= cluster_size;
+
+	avg_p /= (cluster_size > 0 ? cluster_size : 1);
 	avg_n = normalize(avg_n);
-	avg_c /= cluster_size;
+	avg_c /= (cluster_size > 0 ? cluster_size : 1);
 
 	first_val_list[gl_LocalInvocationIndex] = plight(vec4(avg_p, 1.0), vec4(avg_n, 0.0), vec4(avg_c, 1.0));
 }

@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
 	
 	float vpl_radius;
 
-	int num_cluster_pass = 3;
+	int num_cluster_pass = 5;
 	int num_blur_pass = 2;
 
 	int num_rows = 2;
@@ -452,11 +452,11 @@ int main(int argc, char **argv) {
 	//clustered vals
 	shader_storage_buffer direct_vals(sizeof(point_light) * num_val_clusters);
 
-	shader_storage_buffer vpls_per_val(sizeof(unsigned int) * (num_val_clusters * VPL_SAMPLES));
+	shader_storage_buffer vpls_per_val(sizeof(unsigned int) * (num_val_clusters * vpl_budget));
 	shader_storage_buffer count_vpl_per_val(sizeof(unsigned int)  * num_val_clusters);
 	shader_storage_buffer pass_vpl_count(sizeof(unsigned int));
 
-	int num_back_samples = VPL_SAMPLES * num_val_clusters;
+	int num_back_samples = vpl_budget * num_val_clusters;
 	shader_storage_buffer backface_vpls(sizeof(point_light)*num_back_samples);
 	shader_storage_buffer backface_vpl_count(sizeof(unsigned int));
 	unsigned int count = 0;
@@ -856,7 +856,7 @@ int main(int argc, char **argv) {
 			viewportSamples.bindBase(0);
 			BRSM_ssbo.bindBase(1);
 			GLCall(glDispatchCompute(rsm_res/16, rsm_res / 16, 1));
-			GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS))			
+			GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));			
 			BRSM_ssbo.unbind();
 			viewportSamples.unbind();						
 			//------------------------------------------------------//
@@ -937,22 +937,12 @@ int main(int argc, char **argv) {
 			generate_vals(gen_vals, rsm_buffer, val_sample_tbo, vpl_budget, num_val_clusters);
 			direct_vals.unbind();
 			lightSSBO.unbind();	
-
-			//debug print			
-			direct_vals.bind();
-			point_light *vpl = (point_light*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-			for (int i = 0; i < num_val_clusters; i++)
-			{
-				std::cout << "val no: " << i << " position: " << glm::to_string(vpl[i].p) << std::endl;
-			}
-			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-			direct_vals.unbind();
-			
-
 			/* --- BEGIN CLUSTER PASS ---*/			
-			direct_vals.bindBase(0);
 			lightSSBO.bindBase(1);
-			vpls_per_val.bindBase(2);
+			direct_vals.bindBase(0);
+			//mapping of vpls to a large list
+			vpls_per_val.bindBase(2);			
+			//how many vpls per val
 			count_vpl_per_val.bindBase(3);						
 			bool first_cluster_pass = true;
 			for (int i = 0; i < num_cluster_pass; i++)
@@ -968,80 +958,87 @@ int main(int argc, char **argv) {
 			vpls_per_val.unbind();
 			count_vpl_per_val.unbind();
 
+			//////debug print			
+			//direct_vals.bind();
+			//point_light *vpl = (point_light*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+			//for (int i = 0; i < num_val_clusters; i++)
+			//{
+			//	std::cout << "val no: " << i << " position: " << glm::to_string(vpl[i].p) << std::endl;
+			//	std::cout << "val no: " << i << " normal: " << glm::to_string(vpl[i].n) << std::endl;
+			//	
+			//}
+			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+			//direct_vals.unbind();			
+
 			//debug print
-			vpls_per_val.bind();
-			unsigned int *test = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-			vpls_per_val.unbind();
-			for(int i =0; i < num_val_clusters; i++)
-				std::cout << "num vpls in " << i << " cluster: " << test[i] << std::endl;	
-
-			
-				
-
+			//count_vpl_per_val.bind();
+			//unsigned int *test = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+			//for(int i =0; i < num_val_clusters; i++)
+			//	std::cout << "num vpls in " << i << " cluster: " << test[i] << std::endl;					
+			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+			//count_vpl_per_val.unbind();
 
 			/* --- END CLUSTER PASS ---*/	
 			
 			//* ---- BEGIN VAL SM PASS ---- */
-			//direct_vals.bind();
-			//point_light *first_vals = (point_light* )glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_WRITE);
+			direct_vals.bind();
+			point_light *first_vals = (point_light* )glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+
 			//if (!first_vals)
 			//{
 			//	std::cout << "failed to map vals buffer" << std::endl;
 			//}
 			//for(int i=0; i < num_val_clusters; i++)
 			//{ 
-			//	first_vals[i].p = first_vals[i].p + first_vals[i].n * 10.0f;
+			//	//first_vals[i].p = first_vals[i].p + first_vals[i].n * 10.0f;
+			//	std::cout << glm::to_string(first_vals[i].p) << std::endl;
 			//}
-			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-			//direct_vals.unbind();
-			//glDepthMask(GL_TRUE);
-			//glEnable(GL_DEPTH_TEST);					
-			//GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+
+			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+			direct_vals.unbind();
+			glDepthMask(GL_TRUE);
+			glEnable(GL_DEPTH_TEST);					
+			GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
 
 			//render a parabolic map for each val
-			//for (int i = 0; i < num_val_clusters; i++)
-			//{
-			//	glm::vec3 valpos(first_vals[i].p);
-			//	glm::vec3 norm(first_vals[i].n);
-			//
-			//	//ONB construction
-			//	float ks = (norm.z >= 0.0) ? 1.0 : -1.0;
-			//	float ka = 1.0 / (1.0 + abs(norm.z));
-			//	float kb = -ks * norm.x * norm.y * ka;
-			//	glm::vec3 uu = glm::normalize(glm::vec3(1.0 - norm.x * norm.x * ka, ks*kb, -ks * norm.x));
-			//	glm::vec3 vv = glm::normalize(glm::vec3(kb, ks - norm.y * norm.y * ka * ks, -norm.y));
-			//	glm::mat4 val_lookat = glm::lookAt(valpos, valpos + (-norm), uu);
-			//	pView[i] = val_lookat;	
-			//	
-			//	//dont uncoment
-			//	//glCullFace(GL_FRONT);			
-			//	//do_parabolic_rsm(pView[i], parabolic_fbos[i], shader_table["parabolic rsm pass"], ism_w, ism_h, current_scene, ism_near, ism_far);				
-			//}		
+			for (int i = 0; i < num_val_clusters; i++)
+			{
+				glm::vec3 valpos(first_vals[i].p);
+				glm::vec3 norm(first_vals[i].n);
 			
-			//val_mats.upload_data(pView.data());							
-			////render clusters dynamically	
-			//glViewport(0, 0, ism_w, ism_h);			
-			//glCullFace(GL_FRONT);
-			//render_cluster_shadow_map(shader_table["parabolic rsm pass"], val_array_fbo, ism_near, ism_far, current_scene, num_val_clusters);				
-			//glCullFace(GL_BACK);
-			//glViewport(0, 0, Wid, Hei);
+				//ONB construction
+				float ks = (norm.z >= 0.0) ? 1.0 : -1.0;
+				float ka = 1.0 / (1.0 + abs(norm.z));
+				float kb = -ks * norm.x * norm.y * ka;
+				glm::vec3 uu = glm::normalize(glm::vec3(1.0 - norm.x * norm.x * ka, ks*kb, -ks * norm.x));
+				glm::vec3 vv = glm::normalize(glm::vec3(kb, ks - norm.y * norm.y * ka * ks, -norm.y));
+				glm::mat4 val_lookat = glm::lookAt(valpos, valpos + (-norm), uu);
+				pView[i] = val_lookat;	
+				
+				//dont uncoment
+				//glCullFace(GL_FRONT);			
+				//do_parabolic_rsm(pView[i], parabolic_fbos[i], shader_table["parabolic rsm pass"], ism_w, ism_h, current_scene, ism_near, ism_far);				
+			}		
+			
+			val_mats.upload_data(pView.data());							
+			//render clusters dynamically	
+			glViewport(0, 0, ism_w, ism_h);			
+			glCullFace(GL_FRONT);
+			render_cluster_shadow_map(shader_table["parabolic rsm pass"], val_array_fbo, ism_near, ism_far, current_scene, num_val_clusters);				
+			glCullFace(GL_BACK);
+			glViewport(0, 0, Wid, Hei);
 			/* ------- END VAL SM PASS -------- */
 			
 
 			/* ------- NEW SSVP PROPAGATION ------- */	
 			//TODO - FIX PROPAGATION WITH TEXTURE ARRAYS
 			//uncoment
-			//backface_vpls.bindBase(0);
-			//backface_vpl_count.bindBase(1);
-	
-
+			backface_vpls.bindBase(0);
+			backface_vpl_count.bindBase(1);
 			//uncoment
-			//compute_vpl_propagation(shader_table["ssvp"], pView, val_array_fbo, parabolic_fbos, normal_samples_tbo, ism_near, ism_far, VPL_SAMPLES, num_val_clusters, vpl_radius);				
-			//backface_vpls.unbind();
-			//backface_vpl_count.unbind();
-
-				
+			compute_vpl_propagation(shader_table["ssvp"], pView, val_array_fbo, parabolic_fbos, normal_samples_tbo, ism_near, ism_far, vpl_budget, num_val_clusters, vpl_radius);				
+			backface_vpls.unbind();
+			backface_vpl_count.unbind();			
 
 			//debug print
 			//backface_vpl_count.bind();
@@ -1050,20 +1047,20 @@ int main(int argc, char **argv) {
 			//std::cout << "num vpls in backface " << *test << std::endl;				
 
 			/*---- GENERATING FINAL ITERATION BUFFER --- */
-			//direct_vals.bindBase(0);
-			//lightSSBO.bindBase(1);
-			//vpls_per_val.bindBase(2);
-			//count_vpl_per_val.bindBase(3);		
+			direct_vals.bindBase(0);
+			lightSSBO.bindBase(1);
+			vpls_per_val.bindBase(2);
+			count_vpl_per_val.bindBase(3);		
 
-			//generate_final_buffer.use();
-			//generate_final_buffer.setInt("num_vpls", VPL_SAMPLES);
-			//GLCall(glDispatchCompute(1, 1, 1));
-			//GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+			generate_final_buffer.use();
+			generate_final_buffer.setInt("num_vpls", vpl_budget);
+			GLCall(glDispatchCompute(1, 1, 1));
+			GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
 
-			//direct_vals.unbind();
-			//lightSSBO.unbind();
-			//vpls_per_val.unbind();
-			//count_vpl_per_val.unbind();	
+			direct_vals.unbind();
+			lightSSBO.unbind();
+			vpls_per_val.unbind();
+			count_vpl_per_val.unbind();	
 			
 			//debug print
 			//lightSSBO.bind();
@@ -1080,10 +1077,10 @@ int main(int argc, char **argv) {
 					
 			//frustum_planes.bindBase(0);
 			
-			//lightSSBO.bindBase(1);
-			//direct_vals.bindBase(2);	
-			//backface_vpls.bindBase(3);
-			//backface_vpl_count.bindBase(4);	
+			lightSSBO.bindBase(1);
+			direct_vals.bindBase(2);	
+			backface_vpls.bindBase(3);
+			backface_vpl_count.bindBase(4);	
 			
 			//dont uncoment
 			//do_tiled_shading(shader_table["tiled shading"], gbuffer, rsm_buffer, draw_tex, invProj, current_scene, light_data, VPL_SAMPLES, num_val_clusters, lightSSBO, Wid, Hei, ism_near, ism_far, pView, val_array_fbo, see_bounce);
@@ -1095,23 +1092,23 @@ int main(int argc, char **argv) {
 
 			//split_gbuffer(split_buff, gbuffer, interleaved_buffer, num_rows, num_cols,  Wid, Hei);
 						
-			//interleaved_shading(current_scene, draw_tex, shader_table["interleaved shading"], interleaved_buffer, rsm_buffer, val_array_fbo,
-			//	                light_data, VPL_SAMPLES, (num_val_clusters * NUM_2ND_BOUNCE) , 
-			//					num_val_clusters, ism_near, ism_far, see_bounce, Wid, Hei, num_rows,  num_cols);
+			interleaved_shading(current_scene, draw_tex, shader_table["interleaved shading"], interleaved_buffer, rsm_buffer, val_array_fbo,
+				                light_data, vpl_budget, (num_val_clusters * NUM_2ND_BOUNCE) , 
+								num_val_clusters, ism_near, ism_far, see_bounce, Wid, Hei, num_rows,  num_cols);
 						
 			//join/gather split buffer	
-			//join_buffers(join_gbuffer, draw_tex, final_tex, Wid, Hei, num_rows, num_cols);			
+			join_buffers(join_gbuffer, draw_tex, final_tex, Wid, Hei, num_rows, num_cols);			
 
 			//discontinuity buffer 
-			//edge_detection(edge_program, gbuffer, edge_tex, Wid, Hei);
+			edge_detection(edge_program, gbuffer, edge_tex, Wid, Hei);
 			
 			//gaussian blur			
-			//bilateral_blur(xblur, yblur, final_tex, blur_tex, out_tex, edge_tex, (float)Wid, (float)Hei);			
+			bilateral_blur(xblur, yblur, final_tex, blur_tex, out_tex, edge_tex, (float)Wid, (float)Hei);			
 			
-			//lightSSBO.unbind();		
-			//direct_vals.unbind();
-			//backface_vpl_count.unbind();
-			//backface_vpls.unbind();	
+			lightSSBO.unbind();		
+			direct_vals.unbind();
+			backface_vpl_count.unbind();
+			backface_vpls.unbind();	
 									
 			/*----------------------------blit and tone mapping------------------------------------------------*/
 
@@ -1149,7 +1146,7 @@ int main(int argc, char **argv) {
 				ssbo_debug.use();
 				MVP = current_scene.proj * current_scene.camera->GetViewMatrix();
 				ssbo_debug.setMat4("MVP", MVP);
-				ssbo_debug.setFloat("size", 10.0f);
+				ssbo_debug.setFloat("size", 25.0f);
 				ssbo_debug.setVec4("vpl_color", glm::vec4(0.0, 1.0, 0.0, 1.0));
 				glDrawArrays(GL_POINTS, 0, num_val_clusters);
 				//GLCall(glBindVertexArray(0));	

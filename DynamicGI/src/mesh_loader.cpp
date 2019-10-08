@@ -261,6 +261,9 @@ unsigned int TextureFromFile(const char * path, const std::string& directory, bo
 	std::cout << "inside TextureFromFile" << std::endl;
 #endif
 	std::string filename = std::string(path);
+
+	printf("%s\n",directory.c_str());
+	printf("%s\n",filename.c_str());
 	filename = directory + '/' + filename;
 
 	std::cout << "path of current texture " << filename << std::endl;
@@ -270,7 +273,7 @@ unsigned int TextureFromFile(const char * path, const std::string& directory, bo
 	GLCall(glGenTextures(1, &textureID));
 	int width, height, nrComponents;
 	//std::cout << "texture generated succesfully" << std::endl;
-
+	
 	unsigned char * data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
 
 	if (data)
@@ -309,6 +312,7 @@ unsigned int TextureFromFile(const char * path, const std::string& directory, bo
 	{
 		//std::cout << "data is invalid" << std::endl;
 		std::cout << "Texture failed to load at path: " << path << std::endl;
+		std::cout << stbi_failure_reason() << std::endl;
 		stbi_image_free(data);
 	}
 #ifdef SHOW_MSG
