@@ -460,7 +460,7 @@ void main() {
 
 	float diffuse = max(0.0, dot(sun_dir, frag_n.xyz));
 
-	vec3 eye_dir = normalize(frag_pos.xyz - eye_pos);
+	vec3 eye_dir = normalize(eye_pos - frag_pos.xyz);
 	vec3 half_vector = normalize(eye_dir + sun_dir);
 
 	float spec_val = pow(max(dot(frag_n.xyz, half_vector), 0.0), 16);
