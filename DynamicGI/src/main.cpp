@@ -180,11 +180,11 @@ int main(int argc, char **argv) {
 	
 	float vpl_radius;
 
-	int num_cluster_pass = 5;
+	int num_cluster_pass = 3;
 	int num_blur_pass = 2;
 
-	int num_rows = 2;
-	int num_cols = 2;
+	int num_rows = 4;
+	int num_cols = 4;
 
 	//cornell box lighting
 	spot_light spotlight;
@@ -1063,15 +1063,17 @@ int main(int argc, char **argv) {
 			count_vpl_per_val.unbind();	
 			
 			//debug print
-			//lightSSBO.bind();
-			//point_light *a = (point_light*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-			//lightSSBO.unbind();
-			//
-			//for (int i = 0; i < VPL_SAMPLES; i++)
+			backface_vpls.bind();
+			point_light *a = (point_light*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+			//for (int i = 0; i < 256; i++)
 			//{
-			//	std::cout << a[i].n.w << std::endl;
+				std::cout << glm::to_string(a[52].p) << std::endl;
 			//}			
+
+			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+			backface_vpls.unbind();
+			
+			
 
 			/* ---- shading -----*/
 					
