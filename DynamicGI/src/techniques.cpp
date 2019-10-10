@@ -64,7 +64,7 @@ void shadow_pass(shadow_data& data, framebuffer& depth_buffer, mesh_loader& mesh
 std::vector<glm::vec2> gen_uniform_samples(unsigned int s, float min, float max) {
 	std::uniform_real_distribution<float> randomFloats(min, max);
 	//std::normal_distribution<float> randomFloats(min, max);
-	std::default_random_engine gen;
+	std::mt19937 gen;
 	std::vector<glm::vec2> samples(s);
 
 	for (int i = 0; i < s; i++) {

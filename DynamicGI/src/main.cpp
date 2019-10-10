@@ -1090,7 +1090,7 @@ int main(int argc, char **argv) {
 			//backface_vpl_count.unbind();
 			//backface_vpls.unbind();	
 
-			//split_gbuffer(split_buff, gbuffer, interleaved_buffer, num_rows, num_cols,  Wid, Hei);
+			split_gbuffer(split_buff, gbuffer, interleaved_buffer, num_rows, num_cols,  Wid, Hei);
 						
 			interleaved_shading(current_scene, draw_tex, shader_table["interleaved shading"], interleaved_buffer, rsm_buffer, val_array_fbo,
 				                light_data, vpl_budget, (num_val_clusters * NUM_2ND_BOUNCE) , 
@@ -1115,7 +1115,7 @@ int main(int argc, char **argv) {
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);			
 			blit.use();
 			GLCall(glActiveTexture(GL_TEXTURE0));	
-			glBindTexture(GL_TEXTURE_2D, gbuffer.albedo);
+			glBindTexture(GL_TEXTURE_2D, final_tex);
 			//GLCall(glBindTexture(GL_TEXTURE_2D, final_tex));
 			blit.setInt("texImage1", 0);
 
@@ -1149,20 +1149,20 @@ int main(int argc, char **argv) {
 				ssbo_debug.setFloat("size", 25.0f);
 				ssbo_debug.setVec4("vpl_color", glm::vec4(0.0, 1.0, 0.0, 1.0));
 				glDrawArrays(GL_POINTS, 0, num_val_clusters);
-				//GLCall(glBindVertexArray(0));	
-				//backface_vpl_count.bind();
-				//unsigned int *a = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-				//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-				//backface_vpl_count.unbind();
+				GLCall(glBindVertexArray(0));	
+				backface_vpl_count.bind();
+				unsigned int *a = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+				glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+				backface_vpl_count.unbind();
 				////std::cout << "tamanho do light buffer " << *a << std::endl;
-				//GLCall(glBindVertexArray(second_bounce_vao));
-				//ssbo_debug.use();
-				//MVP = current_scene.proj * current_scene.camera->GetViewMatrix();
-				//ssbo_debug.setMat4("MVP", MVP);
-				//ssbo_debug.setFloat("size", 10.0f);
-				//ssbo_debug.setVec4("vpl_color", glm::vec4(0.0, 0.0, 1.0, 1.0));
-				//glDrawArrays(GL_POINTS, 0, *a);
-				//GLCall(glBindVertexArray(0));
+				GLCall(glBindVertexArray(second_bounce_vao));
+				ssbo_debug.use();
+				MVP = current_scene.proj * current_scene.camera->GetViewMatrix();
+				ssbo_debug.setMat4("MVP", MVP);
+				ssbo_debug.setFloat("size", 10.0f);
+				ssbo_debug.setVec4("vpl_color", glm::vec4(0.0, 0.0, 1.0, 1.0));
+				glDrawArrays(GL_POINTS, 0, *a);
+				GLCall(glBindVertexArray(0));
 			}
 
 		}
