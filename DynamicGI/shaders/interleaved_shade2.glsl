@@ -478,14 +478,15 @@ void main() {
 	for (int i = 0; i < lights_per_tile; i++)
 	{
 		plight curr_light = list[flat_id + i];
-
+		float pdf = curr_light.p.w;
+		curr_light.p.w = 2000.f;
 		float layer = curr_light.n.w;
 		float ret = ParabolicRBSM(vec4(frag_pos.xyz, 1.0), parabolic_mats[int(layer)], layer);
 		//float ret = ParabolicShadow(frag_pos, parabolic_mats[int(layer)], layer);
 		//float ret = do_parabolicPCSS(VAL_LIGHT_SIZE, frag_pos, layer);
 
 		//if (ret > 0.0f)
-		output_color += ret * shade_point(curr_light, frag_pos.xyz, frag_n.xyz) ;
+		output_color += ret * shade_point(curr_light, frag_pos.xyz, frag_n.xyz) * pdf ;
 	}
 
 	if (see_bounce)
@@ -494,11 +495,11 @@ void main() {
 		for (int i = 0; i < lights_per_tile2; i++)
 		{
 			plight curr_light = back_vpl_list[flat_id + i];
-			output_color += (shade_point(curr_light, frag_pos.xyz, frag_n.xyz));
+			output_color += (shade_point(curr_light, frag_pos.xyz, frag_n.xyz)) * (1.0/(lights_per_tile2));
 		}
 	}
 
-	output_color *= 0.85;
+	//output_color *= 0.85;
 
 	ivec2 fpos = ivec2(gl_GlobalInvocationID.xy);
 	imageStore(imageBuffer, fpos, vec4(output_color, 1.0));

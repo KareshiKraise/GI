@@ -85,6 +85,11 @@ void main(void)
 	int xpos = l;
 	//y position in col cdf
 	int ypos;
+	//row component of pdf
+	float curr_cdf = cdf_row[l];
+	float prev_cdf = (l - 1) < 0 ? (0.0) : (cdf_row[l-1]);
+	float pdf_row = (curr_cdf - prev_cdf)/max_row;
+	//
 	float max_col = cdf_cols[xpos][dim-1];
 	v.y = max_col * st.y;	
 	//search 2d col cdf
@@ -104,7 +109,12 @@ void main(void)
 	}
 	ypos = l;
 	ivec2 texel_pos = ivec2(xpos, ypos);
-	vec4 pos = vec4(texelFetch(rsm_pos, texel_pos, 0).xyz, vpl_radius);
+	//col component of pdf
+	curr_cdf = cdf_cols[texel_pos.x][texel_pos.y];
+	prev_cdf = (texel_pos.y - 1) < 0 ? 0.f : cdf_cols[texel_pos.x][texel_pos.y-1];
+	float pdf_col = (curr_cdf - prev_cdf) / max_col;
+	float pdf_ij = pdf_row * pdf_col;
+	vec4 pos = vec4(texelFetch(rsm_pos, texel_pos, 0).xyz, pdf_ij);
 	vec4 normal = vec4(texelFetch(rsm_normal, texel_pos, 0).xyz, 0.0);
 	vec4 flux = vec4(texelFetch(rsm_flux, texel_pos, 0).xyz, 1.0);
 
