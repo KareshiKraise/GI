@@ -485,8 +485,8 @@ void main() {
 		//float ret = ParabolicShadow(frag_pos, parabolic_mats[int(layer)], layer);
 		//float ret = do_parabolicPCSS(VAL_LIGHT_SIZE, frag_pos, layer);
 
-		//if (ret > 0.0f)
-		output_color += ret * shade_point(curr_light, frag_pos.xyz, frag_n.xyz) * pdf ;
+		if (ret > 0.0f)
+			output_color += ret * shade_point(curr_light, frag_pos.xyz, frag_n.xyz) * pdf ;
 	}
 
 	if (see_bounce)
@@ -498,9 +498,7 @@ void main() {
 			output_color += (shade_point(curr_light, frag_pos.xyz, frag_n.xyz)) * (1.0/(lights_per_tile2));
 		}
 	}
-
-	//output_color *= 0.85;
-
+	
 	ivec2 fpos = ivec2(gl_GlobalInvocationID.xy);
 	imageStore(imageBuffer, fpos, vec4(output_color, 1.0));
 

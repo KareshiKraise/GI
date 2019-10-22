@@ -35,6 +35,8 @@ layout(std430, binding = 3) buffer count_vpl_per_val {
 	unsigned int vpl_count[];
 };
 
+
+
 const float wx = 0.6;
 const float wa = 0.4;
 
@@ -45,10 +47,11 @@ void main()
 	//{
 		if (gl_LocalInvocationIndex < num_vals)
 		{
-			vpl_count[gl_LocalInvocationIndex] = 0;			
+			vpl_count[gl_LocalInvocationIndex] = 0;	
+			
 		}
 	//}
-
+			
 	barrier();
 
 	

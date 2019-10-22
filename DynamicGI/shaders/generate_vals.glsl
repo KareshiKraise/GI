@@ -29,6 +29,11 @@ layout(std430, binding = 1) buffer vpl_buffer {
 	plight vpl_list[];
 };
 
+//num vpls_assigned to val
+layout(std430, binding = 2) buffer back_vpl_count {
+	unsigned int count;
+};
+
 void main()
 {	
 	//vec2 samp = imageLoad(samples, int(gl_LocalInvocationIndex)).xy;
@@ -36,6 +41,7 @@ void main()
 	//vec4 nor = texture2D(rsm_normal, samp);
 	//vec4 col = texture2D(rsm_flux, samp);
 	
+
 	//the k-val is the (k*N/M)th vpl
 	uint k = gl_LocalInvocationIndex;
 	uint N = num_vpls;

@@ -8,6 +8,7 @@ in vec2 tex;
 
 uniform float near;
 uniform float far;
+uniform int cfactor;
 
 out vec4 color;
 
@@ -29,13 +30,11 @@ float LinearizeDepth(float depth)
 void main(){
 	
 	vec3 albedo = texture(texAlbedo, tex).rgb;	
-	vec3 d = texture(texImage1, tex).rgb;	
-	
-	d = d * 4 * albedo;	
+	vec3 d = texture(texImage1, tex).rgb;		
+	d = d * cfactor * albedo;
 	const float gamma = 2.2f;	
 	vec3 mapped = vec3(1.0f) - exp(-d * 3.f);
-	mapped = pow(mapped, vec3(1.0f/gamma));	
-	
+	mapped = pow(mapped, vec3(1.0f/gamma));
 	color = vec4(mapped, 1.0);
 	
 	gl_FragDepth = texture(depthImage, tex).r;

@@ -4,7 +4,7 @@
 const float PI = 3.1415926f;
 const float PI_TWO = 6.2831853;
 int VPL_SAMPLES = 8 * 8; //number of lights
-int NUM_2ND_BOUNCE = 64;
+const int NUM_2ND_BOUNCE = 64;
 int num_val_clusters = 4;
 int viewSamples = 256;
 int vpl_budget = 256;
@@ -183,8 +183,8 @@ int main(int argc, char **argv) {
 	int num_cluster_pass = 3;
 	int num_blur_pass = 2;
 
-	int num_rows = 4;
-	int num_cols = 4;
+	int num_rows = 2;
+	int num_cols = 2;
 
 	//cornell box lighting
 	spot_light spotlight;
@@ -456,7 +456,7 @@ int main(int argc, char **argv) {
 	shader_storage_buffer count_vpl_per_val(sizeof(unsigned int)  * num_val_clusters);
 	shader_storage_buffer pass_vpl_count(sizeof(unsigned int));
 
-	int num_back_samples = vpl_budget * num_val_clusters;
+	int num_back_samples = NUM_2ND_BOUNCE * num_val_clusters;
 	shader_storage_buffer backface_vpls(sizeof(point_light)*num_back_samples);
 	shader_storage_buffer backface_vpl_count(sizeof(unsigned int));
 	unsigned int count = 0;
@@ -769,6 +769,8 @@ int main(int argc, char **argv) {
 	std::vector<float> cdf(rsm_res*rsm_res);
 
 	bool dr = true;
+	
+	bool first_clusterization = true;
 	//main loop
 	while (!w.should_close()) {
 
@@ -934,16 +936,25 @@ int main(int argc, char **argv) {
 			// GENERATE VALS
 			direct_vals.bindBase(0);
 			lightSSBO.bindBase(1);
-			generate_vals(gen_vals, rsm_buffer, val_sample_tbo, vpl_budget, num_val_clusters);
+			backface_vpl_count.bindBase(2);
+			if (first_clusterization)
+			{
+				generate_vals(gen_vals, rsm_buffer, val_sample_tbo, vpl_budget, num_val_clusters);
+				first_clusterization = false;
+			}
 			direct_vals.unbind();
 			lightSSBO.unbind();	
+			backface_vpl_count.unbind();
+
 			/* --- BEGIN CLUSTER PASS ---*/			
 			lightSSBO.bindBase(1);
 			direct_vals.bindBase(0);
 			//mapping of vpls to a large list
 			vpls_per_val.bindBase(2);			
 			//how many vpls per val
-			count_vpl_per_val.bindBase(3);						
+			count_vpl_per_val.bindBase(3);
+			
+
 			bool first_cluster_pass = true;
 			for (int i = 0; i < num_cluster_pass; i++)
 			{
@@ -953,10 +964,12 @@ int main(int argc, char **argv) {
 				update_cluster_centers(update_vals, vpl_budget);
 				first_cluster_pass = false;
 			}
+			
 			direct_vals.unbind();
 			lightSSBO.unbind();
 			vpls_per_val.unbind();
 			count_vpl_per_val.unbind();
+			
 
 			//////debug print			
 			//direct_vals.bind();
@@ -983,7 +996,6 @@ int main(int argc, char **argv) {
 			//* ---- BEGIN VAL SM PASS ---- */
 			direct_vals.bind();
 			point_light *first_vals = (point_light* )glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-
 			//if (!first_vals)
 			//{
 			//	std::cout << "failed to map vals buffer" << std::endl;
@@ -1029,22 +1041,38 @@ int main(int argc, char **argv) {
 			glViewport(0, 0, Wid, Hei);
 			/* ------- END VAL SM PASS -------- */
 			
-
 			/* ------- NEW SSVP PROPAGATION ------- */	
-			//TODO - FIX PROPAGATION WITH TEXTURE ARRAYS
+			//TODO - FIX PROPAGATION WITH TEXTURE ARRAYS CHANGE HERE TO FIX SECOND BOUNCES NOT UPDATING
 			//uncoment
 			backface_vpls.bindBase(0);
 			backface_vpl_count.bindBase(1);
 			//uncoment
 			compute_vpl_propagation(shader_table["ssvp"], pView, val_array_fbo, parabolic_fbos, normal_samples_tbo, ism_near, ism_far, vpl_budget, num_val_clusters, vpl_radius);				
-			backface_vpls.unbind();
 			backface_vpl_count.unbind();			
-
+			backface_vpls.unbind();
+						
 			//debug print
 			//backface_vpl_count.bind();
+			//unsigned int *a = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 			//backface_vpl_count.unbind();
-			//for(int i =0; i < num_val_clusters; i++)
-			//std::cout << "num vpls in backface " << *test << std::endl;				
+			//if (a == nullptr)
+			//{
+			//	std::cout << "cant read" << std::endl;
+			//}
+			//else {
+			//	std::cout << *a << std::endl;
+			//}			
+			//backface_vpls.bind();
+			//point_light *b = (point_light*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+			//backface_vpls.unbind();
+			//for (int i =0; i < *a; i++)
+			//{
+			//	std::cout << glm::to_string(b[i].p) << std::endl;
+			//}
+
+
 
 			/*---- GENERATING FINAL ITERATION BUFFER --- */
 			direct_vals.bindBase(0);
@@ -1063,17 +1091,14 @@ int main(int argc, char **argv) {
 			count_vpl_per_val.unbind();	
 			
 			//debug print
-			backface_vpls.bind();
-			point_light *a = (point_light*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+			//backface_vpls.bind();
+			//point_light *a = (point_light*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
 			//for (int i = 0; i < 256; i++)
 			//{
-				std::cout << glm::to_string(a[52].p) << std::endl;
-			//}			
-
-			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-			backface_vpls.unbind();
-			
-			
+			//	std::cout << glm::to_string(a[52].p) << std::endl;
+			//}	
+			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+			//backface_vpls.unbind();					
 
 			/* ---- shading -----*/
 					
@@ -1129,6 +1154,7 @@ int main(int argc, char **argv) {
 			GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.depth_map));
 			blit.setInt("depthImage", 2);
 
+			blit.setInt("cfactor", (num_rows*num_cols));
 			blit.setFloat("near", current_scene.n_val);
 			blit.setFloat("far", current_scene.f_val);
 			screen_quad.renderQuad();	
