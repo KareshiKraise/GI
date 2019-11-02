@@ -33,37 +33,35 @@ void main()
 	float weight_accum = weight[0];
 	//check pixel discontinuity
 	float edge = texture(edgeBuffer, fragCoord).r;
-
 	vec2 uv;
-
-	if (edge == 0)
-	{
+	//if (edge == 0.0)
+	//{
 		//blur in positive direction
 		for (int i = 1; i < 3; i++)
 		{
 			uv = vec2(fragCoord.x + offset[i], fragCoord.y);
-			edge = texture(edgeBuffer, uv).r;
+			//edge = texture(edgeBuffer, uv).r;
 			weight_accum += weight[i];
-			if (edge > 0)
-				break;
+			//if (edge != 0.0)
+			//	break;
+			fragColor += texture(colorBuffer, uv) * weight[i];
+			//weight_accum += weight[i];
+		}
+	//}
+	//else if (edge > 0) {
+		//blur in negative direction
+		for (int i = 1; i < 3; i++)
+		{
+			uv = vec2(fragCoord.x - offset[i], fragCoord.y);
+			//edge = texture(edgeBuffer, uv).r;
+			weight_accum += weight[i];
+			//if (edge != 0.0)
+			//	break;
 
 			fragColor += texture(colorBuffer, uv) * weight[i];
 			//weight_accum += weight[i];
 		}
-	}
-	//blur in negative direction
-	for (int i = 1; i < 3; i++)
-	{
-		uv = vec2(fragCoord.x - offset[i], fragCoord.y);
-		edge = texture(edgeBuffer, uv).r;
-		weight_accum += weight[i];
-		if (edge > 0)
-			break;
-
-		fragColor += texture(colorBuffer, uv) * weight[i];
-		//weight_accum += weight[i];
-	}
-
+	//}
 	vec4 col = fragColor * (1.0 / weight_accum);
 	imageStore(imageBuffer, ivec2(gl_GlobalInvocationID.xy), vec4(col.rgb, 1.0));
 	

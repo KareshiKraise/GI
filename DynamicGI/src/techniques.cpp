@@ -117,7 +117,7 @@ void draw_spheres(framebuffer& gbuffer, framebuffer& rsm_buffer, scene& sphere_s
 	sphereShader.setMat4("M", mod);
 
 	GLCall(glBindVertexArray(sphereVAO));
-	GLCall(glDrawElementsInstanced(GL_TRIANGLES, sphere.get_indices().size(), GL_UNSIGNED_INT, 0, VPL_SAMPLES));
+	//GLCall(glDrawElementsInstanced(GL_TRIANGLES, sphere.get_indices().size(), GL_UNSIGNED_INT, 0, VPL_SAMPLES));
 }
 
 void do_SSVP(Shader& SSVP, shader_storage_buffer& lightSSBO, GLuint samplesTBO, const framebuffer& cubemap, glm::vec4 refPos, int NumLights, int MaxLights, unsigned int factor)
@@ -722,4 +722,49 @@ void bilateral_blur(Shader& xblur, Shader& yblur, GLuint in_tex, GLuint blur_tex
 	GLCall(glBindImageTexture(0, out_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F));
 	GLCall(glDispatchCompute(Wid / 16, Hei / 16, 1));
 	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
+}
+
+void horizontal_pass(Shader& xblur, GLuint edge_tex, GLuint in_tex, GLuint out_tex, GLuint numsamp ,quad& q, float Wid, float Hei)
+{
+	xblur.use();
+	xblur.setFloat("Wid", Wid);
+	xblur.setFloat("Hei", Hei);
+
+	GLCall(glActiveTexture(GL_TEXTURE0));
+	GLCall(glBindTexture(GL_TEXTURE_2D, in_tex));
+	xblur.setInt("lightingBuffer", 0);
+	GLCall(glActiveTexture(GL_TEXTURE1));
+	GLCall(glBindTexture(GL_TEXTURE_2D, edge_tex));
+	xblur.setInt("edgeBuffer", 1);	
+	GLCall(glBindImageTexture(0, out_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F));
+	GLCall(glBindImageTexture(1, numsamp, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI));
+
+	q.renderQuad();
+}
+
+void vertical_pass(Shader& yblur, GLuint edge_tex, GLuint in_tex, GLuint out_tex, GLuint numsamp ,quad& q, float Wid, float Hei)
+{
+	yblur.use();
+	yblur.setFloat("Wid", Wid);
+	yblur.setFloat("Hei", Hei);
+
+	GLCall(glActiveTexture(GL_TEXTURE0));
+	GLCall(glBindTexture(GL_TEXTURE_2D, in_tex));
+	yblur.setInt("lightingBuffer", 0);
+	GLCall(glActiveTexture(GL_TEXTURE1));
+	GLCall(glBindTexture(GL_TEXTURE_2D, edge_tex));
+	yblur.setInt("edgeBuffer", 1);	
+	GLCall(glBindImageTexture(0, out_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F));
+	GLCall(glBindImageTexture(1, numsamp, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI));
+
+	q.renderQuad();
+}
+
+void blur_pass(Shader& xblur, Shader& yblur, int num_blur_pass, GLuint edge_tex, GLuint in_tex, GLuint out_tex, GLuint numsamp, quad& q, float Wid, float Hei)
+{
+	for (int i = 0; i < num_blur_pass; ++i)
+	{
+		horizontal_pass(xblur, edge_tex, in_tex, out_tex, numsamp, q, Wid, Hei);
+		vertical_pass(yblur, edge_tex, out_tex, in_tex, numsamp,  q, Wid, Hei);
+	}
 }

@@ -156,3 +156,10 @@ void join_buffers(Shader& join_gbuffer, GLuint draw_tex, GLuint final_tex, int W
 void edge_detection(Shader& edge_program, framebuffer& gbuffer, GLuint edge_tex, int Wid, int Hei);
 
 void bilateral_blur(Shader& xblur, Shader& yblur, GLuint in_tex, GLuint blur_tex, GLuint out_tex, GLuint edge_tex, float Wid, float Hei);
+
+void horizontal_pass(Shader& xblur, GLuint edge_tex, GLuint in_tex, GLuint out_tex, GLuint numsamp, const quad& q, float Wid, float Hei);
+
+void vertical_pass(Shader& yblur, GLuint edge_tex, GLuint in_tex, GLuint out_tex, GLuint numsamp, const quad& q, float Wid, float Hei);
+
+void blur_pass(Shader& xblur, Shader& yblur, int num_blur_pass, GLuint edge_tex, GLuint in_tex, GLuint out_tex, GLuint numsamp, quad& q, float Wid, float Hei);
+

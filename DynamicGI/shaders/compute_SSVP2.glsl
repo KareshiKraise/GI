@@ -26,14 +26,7 @@ layout(std430, binding = 1) buffer backface_vpl_count {
 
 uniform float vpl_radius;
 
-
-void main() {
-     
-	//if (gl_LocalInvocationIndex.x == 0)
-	//{
-	//	back_vpl_count = 0;
-	//}
-	//barrier();
+void main() {     
 
 	float SECOND_BOUNCE_RAD = vpl_radius;// - (vpl_radius * 0.15f);  
 	
@@ -46,7 +39,12 @@ void main() {
 	vec4 c = texture(prsm_flux, vec3(uv, id));
 
 	uint idx = atomicAdd(back_vpl_count, 1);
-	back_vpl_list[idx] = plight(vec4(p, SECOND_BOUNCE_RAD), n, c);
+	
+	uint wid = gl_WorkGroupSize.x * gl_NumWorkGroups.x;	
+
+	uint light_id = gl_GlobalInvocationID.y * wid + gl_GlobalInvocationID.x;
+
+	back_vpl_list[light_id] = plight(vec4(p, SECOND_BOUNCE_RAD), n, c);
 	
 
 }

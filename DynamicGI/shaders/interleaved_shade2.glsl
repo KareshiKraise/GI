@@ -230,7 +230,6 @@ float DirectionalShadow(vec4 fragPosLS, vec3 norm) {
 	return shadow;
 }
 
-
 #define EPSILON 0.1f
 float ParabolicRBSM(vec4 worldPos, mat4 lightV, float layer) {
 
@@ -297,6 +296,20 @@ vec3 shade_point(plight light, vec3 ppos, vec3 pnormal)
 
 	col = light.c.xyz * kd * max(0.0, dot(pnormal, lightdir)) * atten;
 
+	return col;
+}
+
+vec3 shade_calc(plight l, vec3 pp, vec3 pn)
+{
+	vec3 col;
+	vec3 val_to_vs = normalize(l.p.xyz - pp);
+	vec3 vs_to_val = normalize(pp - l.p.xyz);
+	float dist = length(l.p.xyz - pp);
+	if (dist < 1.0f)
+	{
+		dist = 1.0f;
+	}
+	col = (vec3(1.0) * 1000.0f * max(dot(l.n.xyz, vs_to_val), 0.0) * max(dot(pn, val_to_vs), 0.0)) / (dist);
 	return col;
 }
 
@@ -479,14 +492,17 @@ void main() {
 	{
 		plight curr_light = list[flat_id + i];
 		float pdf = curr_light.p.w;
-		curr_light.p.w = 2000.f;
+		curr_light.p.w = 3000.f;
 		float layer = curr_light.n.w;
 		float ret = ParabolicRBSM(vec4(frag_pos.xyz, 1.0), parabolic_mats[int(layer)], layer);
 		//float ret = ParabolicShadow(frag_pos, parabolic_mats[int(layer)], layer);
 		//float ret = do_parabolicPCSS(VAL_LIGHT_SIZE, frag_pos, layer);
-
+		pdf = 1.0 / lights_per_tile;
 		if (ret > 0.0f)
-			output_color += ret * shade_point(curr_light, frag_pos.xyz, frag_n.xyz) * pdf ;
+		{
+			output_color += (shade_calc(curr_light, frag_pos.xyz, frag_n.xyz) * pdf);
+			//output_color += ret * shade_point(curr_light, frag_pos.xyz, frag_n.xyz) * (1.0 / lights_per_tile);
+		}			
 	}
 
 	if (see_bounce)
@@ -494,8 +510,10 @@ void main() {
 		int lights_per_tile2 = num_second_bounce / (num_rows * num_cols);
 		for (int i = 0; i < lights_per_tile2; i++)
 		{
+			float pdf = 1.0 / lights_per_tile2;
 			plight curr_light = back_vpl_list[flat_id + i];
-			output_color += (shade_point(curr_light, frag_pos.xyz, frag_n.xyz)) * (1.0/(lights_per_tile2));
+			output_color += (shade_calc(curr_light, frag_pos.xyz, frag_n.xyz) * pdf);
+			//output_color += (shade_point(curr_light, frag_pos.xyz, frag_n.xyz)) * (1.0/(lights_per_tile2)) ;
 		}
 	}
 	

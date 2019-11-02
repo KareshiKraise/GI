@@ -1,11 +1,14 @@
 #version 430
 
-layout(binding = 0) uniform sampler2D texImage1;
+layout(binding = 0) uniform sampler2D lightingBuffer;
 layout(binding = 1) uniform sampler2D texAlbedo;
 layout(binding = 2) uniform sampler2D depthImage;
+layout(binding = 3) uniform usampler2D numSamples;
 
 in vec2 tex;
 
+uniform float Wid;
+uniform float Hei;
 uniform float near;
 uniform float far;
 uniform int cfactor;
@@ -29,16 +32,23 @@ float LinearizeDepth(float depth)
 
 void main(){
 	
+	//float num_samp = texture(numSamples, vec2(gl_FragCoord)/vec2(Wid, Hei)).x;
+	//num_samp = 1.0;
+
+	//albedo for color correction
 	vec3 albedo = texture(texAlbedo, tex).rgb;	
-	vec3 d = texture(texImage1, tex).rgb;		
-	d = d * cfactor * albedo;
+	
+	//denoised lighting buffer
+	vec3 d = texture(lightingBuffer, tex).rgb;
+	
+	d = d * albedo;
 	const float gamma = 2.2f;	
+	//vec3 mapped = d / (d + vec3(1.0f));	
 	vec3 mapped = vec3(1.0f) - exp(-d * 3.f);
 	mapped = pow(mapped, vec3(1.0f/gamma));
 	color = vec4(mapped, 1.0);
 	
 	gl_FragDepth = texture(depthImage, tex).r;
-	
 
 	//see depth
 	//float z = texture(depthImage, tex).r;

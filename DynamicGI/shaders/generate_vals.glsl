@@ -29,10 +29,6 @@ layout(std430, binding = 1) buffer vpl_buffer {
 	plight vpl_list[];
 };
 
-//num vpls_assigned to val
-layout(std430, binding = 2) buffer back_vpl_count {
-	unsigned int count;
-};
 
 void main()
 {	

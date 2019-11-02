@@ -81,15 +81,15 @@ void main()
 		           (float(gl_GlobalInvocationID.y)+0.5f)/float(Hei)
 	              );
 	
-	//vec4  p = texelFetch(gposition, ivec2(gl_GlobalInvocationID.xy), 0);
-	//vec4  n = texelFetch(gnormal,   ivec2(gl_GlobalInvocationID.xy), 0);
-	//vec4  c = texelFetch(gcol,      ivec2(gl_GlobalInvocationID.xy), 0);
-    //vec4  z = texelFetch(gdepth,    ivec2(gl_GlobalInvocationID.xy), 0);
+	vec4  p = texelFetch(gposition, ivec2(gl_GlobalInvocationID.xy), 0);
+	vec4  n = texelFetch(gnormal,   ivec2(gl_GlobalInvocationID.xy), 0);
+	vec4  c = texelFetch(gcol,      ivec2(gl_GlobalInvocationID.xy), 0);
+    vec4  z = texelFetch(gdepth,    ivec2(gl_GlobalInvocationID.xy), 0);
 
-	vec4  p =texture(gposition, uv);
-	vec4  n =texture(gnormal,   uv);
-	vec4  c =texture(gcol,      uv);
-	vec4  z =texture(gdepth,    uv);
+	//vec4  p =texture(gposition, uv);
+	//vec4  n =texture(gnormal,   uv);
+	//vec4  c =texture(gcol,      uv);
+	//vec4  z =texture(gdepth,    uv);
 	
 	imageStore(posBuffer   , id, p);
 	imageStore(normalBuffer, id, n);
