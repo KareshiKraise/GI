@@ -26,24 +26,25 @@ void mesh_loader::Draw(Shader shader)
 			m.Draw(shader);
 		}
 	}
-	else if(m_type == model_type::NO_TEXTURE) 
-	{
-		for (auto& m : cornel)
-		{
-			m.Draw();
-		}
-	}
+	//else if(m_type == model_type::NO_TEXTURE) 
+	//{
+	//	for (auto& m : cornel)
+	//	{
+	//		m.Draw();
+	//	}
+	//}
 }
 
+//flags aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
 void mesh_loader::loadModel(std::string path)
 {
 #ifdef SHOW_MSG
 	std::cout << "inside load model" << std::endl;
 #endif
 	Assimp::Importer importer; 
-	//aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices
-	const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices | aiProcess_GenNormals );
-
+	
+	const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_JoinIdenticalVertices );
+	scene = importer.ApplyPostProcessing(aiProcess_CalcTangentSpace);	
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 	{
 		std::cout << "[ERROR:ASSIMP]: " << importer.GetErrorString() << std::endl;
@@ -112,20 +113,27 @@ Model mesh_loader::processModel(aiMesh * mesh, const aiScene * scene)
 		}
 		else {
 			vert.uv = glm::vec2(0.0f, 0.0f);
+			std::cout << "no uvs detected" << std::endl;
 		}
 
-
-		/*tangents and bitangents*/
-		//vec.x = mesh->mTangents[i].x;
-		//vec.x = mesh->mTangents[i].y;
-		//vec.x = mesh->mTangents[i].z;
-		//vert.tangent = vec;
-		//vec.x = mesh->mBitangents[i].x;
-		//vec.x = mesh->mBitangents[i].y;
-		//vec.x = mesh->mBitangents[i].z;
-		//vert.bitangent = vec;
-
-		vertices.push_back(vert);		
+		if (mesh->HasTangentsAndBitangents())
+		{   
+			//std::cout << "Has tangents" << std::endl;
+			/*tangents and bitangents*/
+			vec.x = mesh->mTangents[i].x;
+			vec.x = mesh->mTangents[i].y;
+			vec.x = mesh->mTangents[i].z;
+			vert.tangent = vec;
+			vec.x = mesh->mBitangents[i].x;
+			vec.x = mesh->mBitangents[i].y;
+			vec.x = mesh->mBitangents[i].z;
+			vert.bitangent = vec;
+			vertices.push_back(vert);
+		}
+		else
+		{
+			std::cout << "Model doesnt have tangents" << std::endl;
+		}
 		
 		c_vertex v{ vert.pos, vert.normal, glm::vec3(0.0) };
 		col.push_back(v);
@@ -139,6 +147,7 @@ Model mesh_loader::processModel(aiMesh * mesh, const aiScene * scene)
 	}
 
 	aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
+	
 
 	aiColor3D color(0.0, 0.0, 0.0);
 	material->Get(AI_MATKEY_COLOR_DIFFUSE, color);
@@ -147,8 +156,7 @@ Model mesh_loader::processModel(aiMesh * mesh, const aiScene * scene)
 	{
 		c.col = glm::vec3(color.r, color.g, color.b);
 	}
-
-
+		
 	std::vector<Texture> diffuseMaps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");
 	textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
 
@@ -156,7 +164,10 @@ Model mesh_loader::processModel(aiMesh * mesh, const aiScene * scene)
 	textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
 
 	std::vector<Texture> normalMaps = loadMaterialTextures(material, aiTextureType_HEIGHT, "texture_normal");
-	textures.insert(textures.end(), normalMaps.begin(), normalMaps.end());
+	textures.insert(textures.end(), normalMaps.begin(), normalMaps.end());		
+
+	std::vector<Texture> transparencyMaps = loadMaterialTextures(material, aiTextureType_OPACITY, "texture_alphamask");
+	textures.insert(textures.end(), transparencyMaps.begin(), transparencyMaps.end());
 
 	std::vector<Texture> heightMaps = loadMaterialTextures(material, aiTextureType_AMBIENT, "texture_height");
 	textures.insert(textures.end(), heightMaps.begin(), heightMaps.end());
@@ -184,6 +195,7 @@ std::vector<Texture> mesh_loader::loadMaterialTextures(aiMaterial * mat, aiTextu
 		{
 			if (std::strcmp(textures_loaded[j].path.data(), str.C_Str()) == 0)
 			{
+				//std::cout << "texture: " << str.C_Str() << " already exists" << std::endl;
 				textures.push_back(textures_loaded[j]);
 				skip = true; break;
 			}
@@ -191,7 +203,7 @@ std::vector<Texture> mesh_loader::loadMaterialTextures(aiMaterial * mat, aiTextu
 		if (!skip)
 		{
 			Texture texture;
-			texture.id = TextureFromFile(str.C_Str(), this->directory, gammaCorrection);
+			texture.id = TextureFromFile(str.C_Str(), this->directory, type, gammaCorrection);
 			texture.type = typeName;
 			texture.path = str.C_Str();
 			textures.push_back(texture);
@@ -255,27 +267,29 @@ void mesh_loader::bb_center()
 	min = glm::vec3(minX, minY, minZ);
 }
 
-unsigned int TextureFromFile(const char * path, const std::string& directory, bool gamma = false)
+unsigned int TextureFromFile(const char * path, const std::string& directory, aiTextureType type, bool gamma = false)
 {
 #ifdef SHOW_MSG
 	std::cout << "inside TextureFromFile" << std::endl;
 #endif
 	std::string filename = std::string(path);
 
-	printf("%s\n",directory.c_str());
-	printf("%s\n",filename.c_str());
+	//printf("%s\n",directory.c_str());
+	//printf("%s\n",filename.c_str());
 	filename = directory + '/' + filename;
-
-	std::cout << "path of current texture " << filename << std::endl;
-
+	
 	GLuint textureID;
-	//std::cout << "generating texture" << std::endl;
+	//std::cout << "generating texture " << directory << std::endl;
 	GLCall(glGenTextures(1, &textureID));
 	int width, height, nrComponents;
-	//std::cout << "texture generated succesfully" << std::endl;
-	
-	unsigned char * data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
+	//std::cout << "texture generated succesfully" << std::endl;	
 
+	unsigned char * data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
+	//std::cout << "path of current texture " << filename << std::endl;
+	//std::cout << "wid " << width << std::endl;
+	//std::cout << "hei " << height << std::endl;
+	//std::cout << "num components " << nrComponents << std::endl;
+	
 	if (data)
 	{
 		//std::cout << "data is valid" << std::endl;
@@ -286,25 +300,33 @@ unsigned int TextureFromFile(const char * path, const std::string& directory, bo
 			format = GL_RED;
 			internal_format = GL_RED;
 		}
+		else if (nrComponents == 2)
+		{
+			format = GL_RG;
+			internal_format = GL_RG;
+		}
 		else if (nrComponents == 3)
 		{
 			format = GL_RGB;	
-			internal_format = GL_SRGB;
+			internal_format = GL_RGB;			
+			if (type == aiTextureType_DIFFUSE)
+				internal_format = GL_SRGB;			
 		}
 		else if (nrComponents = 4)
 		{
 			format = GL_RGBA;	
-			internal_format = GL_SRGB_ALPHA;
+			internal_format = GL_RGBA;
+			if(type == aiTextureType_DIFFUSE)
+				internal_format = GL_SRGB_ALPHA;
 		}
 
 		GLCall(glBindTexture(GL_TEXTURE_2D, textureID););
 		GLCall(glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, format, GL_UNSIGNED_BYTE, data));
-		GLCall(glGenerateMipmap(GL_TEXTURE_2D));
-
 		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
 		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
 		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
 		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+		GLCall(glGenerateMipmap(GL_TEXTURE_2D));
 
 		stbi_image_free(data);
 	}

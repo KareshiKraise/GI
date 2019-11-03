@@ -135,13 +135,13 @@ public:
 
 		if (geometryPath != nullptr)
 		{
-			std::cout << "has geometry shader will attach" << std::endl;
+			//std::cout << "has geometry shader will attach" << std::endl;
 			glAttachShader(ID, geometry_s);
 		}
 
 		if (computePath != nullptr)
 		{
-			std::cout << "has compute shader will attach" << std::endl;
+			//std::cout << "has compute shader will attach" << std::endl;
 			glAttachShader(ID, compute_s);
 		}
 
@@ -158,12 +158,12 @@ public:
 
 		if (geometryPath != nullptr)
 		{
-			std::cout << " has geometry shader will delete" << std::endl;
+			//std::cout << " has geometry shader will delete" << std::endl;
 			glDeleteShader(geometry_s);
 		}
 		if (computePath != nullptr)
 		{
-			std::cout << " has compute shader will delete" << std::endl;
+			//std::cout << " has compute shader will delete" << std::endl;
 			glDeleteShader(compute_s);
 		}
 

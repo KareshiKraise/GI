@@ -181,9 +181,6 @@ int main(int argc, char **argv) {
 	/*-----parameters----*/
 	//float Wid = 3840.0f;
 	//float Hei = 2160.0f;
-	
-	
-
 	//float Wid = 1920.0f;
 	//float Hei = 1080.0f;
 
@@ -213,8 +210,8 @@ int main(int argc, char **argv) {
 	int num_cluster_pass = 3;
 	int num_blur_pass = 1;
 
-	int num_rows = 8;
-	int num_cols = 6;
+	int num_rows = 4;
+	int num_cols = 4;
 
 	//cornell box lighting
 	spot_light spotlight;
@@ -228,6 +225,7 @@ int main(int argc, char **argv) {
 	//spotlight.d = glm::vec4(0.0, 1.0, -0.5, 1.0);
 	spotlight.p = glm::vec4(0.17507, 1.27212, 1.0336, 1.0);
 
+	
 	/*----SET WINDOW AND CALLBACKS ----*/
 	window w;
 
@@ -354,6 +352,7 @@ int main(int argc, char **argv) {
 		//num_val_clusters = 4;
 	}
 
+	
 	//All shader declarations
 
 	//Cornell Box specific
@@ -1173,19 +1172,16 @@ int main(int argc, char **argv) {
 			//direct_vals.unbind();
 			//backface_vpl_count.unbind();
 			//backface_vpls.unbind();	
-
 			{
 				//gputimer a("split gbuffer");
 				split_gbuffer(split_buff, gbuffer, interleaved_buffer, num_rows, num_cols, Wid, Hei);
 			}
-
 			{
 				//gputimer a("interleaved shading");
 				interleaved_shading(current_scene, draw_tex, shader_table["interleaved shading"], interleaved_buffer, rsm_buffer, val_array_fbo,
 					light_data, vpl_budget, (num_val_clusters * NUM_2ND_BOUNCE),
 					num_val_clusters, ism_near, ism_far, see_bounce, Wid, Hei, num_rows, num_cols);
 			}
-
 			//join/gather split buffer	
 			{
 				//gputimer a("join buffers");
@@ -1197,7 +1193,7 @@ int main(int argc, char **argv) {
 			//gaussian blur
 			{
 				//gputimer a("blur pass");
-				blur_pass(blur_pass_x, blur_pass_y, num_blur_pass, edge_tex, final_tex, out_tex, num_samp_tex, screen_quad, (float)Wid, (float)Hei);
+				blur_pass(blur_pass_x, blur_pass_y, num_blur_pass, edge_tex, final_tex, out_tex, screen_quad, (float)Wid, (float)Hei);
 			}
 
 			lightSSBO.unbind();		
@@ -1215,17 +1211,14 @@ int main(int argc, char **argv) {
 			blit.setInt("lightingBuffer", 0);
 
 			GLCall(glActiveTexture(GL_TEXTURE1));
-			GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.albedo));
+			GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.normal));
 			blit.setInt("texAlbedo", 1);
 
 		    GLCall(glActiveTexture(GL_TEXTURE2));
 			GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.depth_map));
 			blit.setInt("depthImage", 2);
 
-			GLCall(glActiveTexture(GL_TEXTURE3));
-			GLCall(glBindTexture(GL_TEXTURE_2D, num_samp_tex));
-			blit.setInt("numSamples", 3);
-
+			
 			blit.setInt("cfactor", (num_rows*num_cols));
 			blit.setFloat("near", current_scene.n_val);
 			blit.setFloat("far", current_scene.f_val);

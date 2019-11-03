@@ -724,7 +724,7 @@ void bilateral_blur(Shader& xblur, Shader& yblur, GLuint in_tex, GLuint blur_tex
 	GLCall(glMemoryBarrier(GL_ALL_BARRIER_BITS));
 }
 
-void horizontal_pass(Shader& xblur, GLuint edge_tex, GLuint in_tex, GLuint out_tex, GLuint numsamp ,quad& q, float Wid, float Hei)
+void horizontal_pass(Shader& xblur, GLuint edge_tex, GLuint in_tex, GLuint out_tex, quad& q, float Wid, float Hei)
 {
 	xblur.use();
 	xblur.setFloat("Wid", Wid);
@@ -737,12 +737,12 @@ void horizontal_pass(Shader& xblur, GLuint edge_tex, GLuint in_tex, GLuint out_t
 	GLCall(glBindTexture(GL_TEXTURE_2D, edge_tex));
 	xblur.setInt("edgeBuffer", 1);	
 	GLCall(glBindImageTexture(0, out_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F));
-	GLCall(glBindImageTexture(1, numsamp, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI));
+	
 
 	q.renderQuad();
 }
 
-void vertical_pass(Shader& yblur, GLuint edge_tex, GLuint in_tex, GLuint out_tex, GLuint numsamp ,quad& q, float Wid, float Hei)
+void vertical_pass(Shader& yblur, GLuint edge_tex, GLuint in_tex, GLuint out_tex, quad& q, float Wid, float Hei)
 {
 	yblur.use();
 	yblur.setFloat("Wid", Wid);
@@ -755,16 +755,16 @@ void vertical_pass(Shader& yblur, GLuint edge_tex, GLuint in_tex, GLuint out_tex
 	GLCall(glBindTexture(GL_TEXTURE_2D, edge_tex));
 	yblur.setInt("edgeBuffer", 1);	
 	GLCall(glBindImageTexture(0, out_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F));
-	GLCall(glBindImageTexture(1, numsamp, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI));
+	
 
 	q.renderQuad();
 }
 
-void blur_pass(Shader& xblur, Shader& yblur, int num_blur_pass, GLuint edge_tex, GLuint in_tex, GLuint out_tex, GLuint numsamp, quad& q, float Wid, float Hei)
+void blur_pass(Shader& xblur, Shader& yblur, int num_blur_pass, GLuint edge_tex, GLuint in_tex, GLuint out_tex, quad& q, float Wid, float Hei)
 {
 	for (int i = 0; i < num_blur_pass; ++i)
 	{
-		horizontal_pass(xblur, edge_tex, in_tex, out_tex, numsamp, q, Wid, Hei);
-		vertical_pass(yblur, edge_tex, out_tex, in_tex, numsamp,  q, Wid, Hei);
+		horizontal_pass(xblur, edge_tex, in_tex, out_tex, q, Wid, Hei);
+		vertical_pass(yblur, edge_tex, out_tex, in_tex, q, Wid, Hei);
 	}
 }

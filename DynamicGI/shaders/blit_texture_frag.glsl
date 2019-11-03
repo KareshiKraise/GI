@@ -3,7 +3,7 @@
 layout(binding = 0) uniform sampler2D lightingBuffer;
 layout(binding = 1) uniform sampler2D texAlbedo;
 layout(binding = 2) uniform sampler2D depthImage;
-layout(binding = 3) uniform usampler2D numSamples;
+
 
 in vec2 tex;
 
@@ -14,7 +14,6 @@ uniform float far;
 uniform int cfactor;
 
 out vec4 color;
-
 
 float LinearizeDepth(float depth)
 {
@@ -29,14 +28,12 @@ float LinearizeDepth(float depth)
 //	return z_eye;
 //}
 
-
 void main(){
 	
-	//float num_samp = texture(numSamples, vec2(gl_FragCoord)/vec2(Wid, Hei)).x;
-	//num_samp = 1.0;
-
 	//albedo for color correction
-	vec3 albedo = texture(texAlbedo, tex).rgb;	
+	vec3 albedo = texture(texAlbedo, tex).rgb;
+	//spec
+	float spec =  texture(texAlbedo, tex).a;
 	
 	//denoised lighting buffer
 	vec3 d = texture(lightingBuffer, tex).rgb;
@@ -46,7 +43,8 @@ void main(){
 	//vec3 mapped = d / (d + vec3(1.0f));	
 	vec3 mapped = vec3(1.0f) - exp(-d * 3.f);
 	mapped = pow(mapped, vec3(1.0f/gamma));
-	color = vec4(mapped, 1.0);
+
+	color = vec4(albedo, 1.0);
 	
 	gl_FragDepth = texture(depthImage, tex).r;
 

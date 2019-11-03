@@ -6,7 +6,7 @@
 #include "model.h"
 //#define SHOW_MSG 1
 
-unsigned int TextureFromFile(const char *path, const std::string &directory, bool gamma);
+unsigned int TextureFromFile(const char *path, const std::string &directory, aiTextureType type, bool gamma);
 
 enum class model_type {
 	TEXTURED = 1,

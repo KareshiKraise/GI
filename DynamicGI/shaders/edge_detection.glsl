@@ -8,8 +8,8 @@ layout(binding = 1) uniform sampler2D gdepth;
 layout(rgba8, binding = 0) uniform image2D imageBuffer;
 
 /*-edge detection params*/
-float n_thres = 90;   //0.15
-float z_thres = 0.013;  //0.013
+float n_thres = 85;   //0.15
+float z_thres = 0.05;  //0.013
 
 #define RAD_TO_DEGREE 57.295779513
 
@@ -52,7 +52,7 @@ void main()
 	{
 		deltan = acos(dot(packed_nz.xyz, neighbours[i].xyz)) * RAD_TO_DEGREE;
 		deltaz = abs(packed_nz.w - neighbours[i].w);
-		if ((deltan > n_thres))
+		if (deltan > n_thres)
 		{
 			edge = 1;
 			break;
