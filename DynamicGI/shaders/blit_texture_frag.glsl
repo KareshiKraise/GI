@@ -44,7 +44,7 @@ void main(){
 	vec3 mapped = vec3(1.0f) - exp(-d * 3.f);
 	mapped = pow(mapped, vec3(1.0f/gamma));
 
-	color = vec4(albedo, 1.0);
+	color = vec4(mapped, 1.0);
 	
 	gl_FragDepth = texture(depthImage, tex).r;
 

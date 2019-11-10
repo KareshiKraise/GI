@@ -1001,9 +1001,7 @@ int main(int argc, char **argv) {
 			}
 			direct_vals.unbind();
 			lightSSBO.unbind();
-
-
-
+			
 			/* --- BEGIN CLUSTER PASS ---*/
 			{
 				//gputimer a("cluster pass");
@@ -1027,14 +1025,7 @@ int main(int argc, char **argv) {
 				vpls_per_val.unbind();
 				count_vpl_per_val.unbind();
 			}
-
-			//debug print
-			//count_vpl_per_val.bind();
-			//unsigned int *test = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-			//for(int i =0; i < num_val_clusters; i++)
-			//	std::cout << "num vpls in " << i << " cluster: " << test[i] << std::endl;					
-			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-			//count_vpl_per_val.unbind();
+						
 
 			/* --- END CLUSTER PASS ---*/
 
@@ -1107,28 +1098,8 @@ int main(int argc, char **argv) {
 				backface_vpl_count.unbind();
 				backface_vpls.unbind();
 			}
-
-
-			//debug print
-			//backface_vpl_count.bind();
-			//unsigned int *a = (unsigned int*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-			//backface_vpl_count.unbind();
-			//if (a == nullptr)
-			//{
-			//	std::cout << "cant read" << std::endl;
-			//}
-			//else {
-			//	std::cout << *a << std::endl;
-			//}			
-			//backface_vpls.bind();
-			//point_light *b = (point_light*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-			//backface_vpls.unbind();
-			//for (int i =0; i < 256; i++)
-			//{
-			//	std::cout << glm::to_string(b[i].p) << std::endl;
-			//}
+			
+			
 
 			/*---- GENERATING FINAL ITERATION BUFFER --- */
 			{
@@ -1145,16 +1116,7 @@ int main(int argc, char **argv) {
 				vpls_per_val.unbind();
 				count_vpl_per_val.unbind();
 			}
-
-			//debug print
-			//backface_vpls.bind();
-			//point_light *a = (point_light*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-			//for (int i = 0; i < 256; i++)
-			//{
-			//	std::cout << glm::to_string(a[52].p) << std::endl;
-			//}	
-			//glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-			//backface_vpls.unbind();					
+					
 
 			/* ---- shading -----*/
 
@@ -1211,7 +1173,7 @@ int main(int argc, char **argv) {
 			blit.setInt("lightingBuffer", 0);
 
 			GLCall(glActiveTexture(GL_TEXTURE1));
-			GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.normal));
+			GLCall(glBindTexture(GL_TEXTURE_2D, gbuffer.albedo));
 			blit.setInt("texAlbedo", 1);
 
 		    GLCall(glActiveTexture(GL_TEXTURE2));
@@ -1302,7 +1264,6 @@ int main(int argc, char **argv) {
 			//glBindVertexArray(paper_vao);
 			//glDrawArrays(GL_POINTS, 0, 120);
 			//glBindVertexArray(0);
-
 		}
 		
 		//delta time and gui frametime renderer;

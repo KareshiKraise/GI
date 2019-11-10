@@ -73,11 +73,11 @@ void main() {
 	
 	//if (0 == useNormalMap)
 	//{
-	//	gnormal = normalize(fs_in.n);
+		gnormal = normalize(fs_in.n);
 	//}
 	//else if (1 == useNormalMap )
 	//{
-		gnormal = normalize(V * vec4(bump_normal_derivative(), 0.0)).xyz;
+		//gnormal = normalize(V * vec4(bump_normal_derivative(), 0.0)).xyz;
 	//}	    
 
 	if (0 == useSpecMap)
