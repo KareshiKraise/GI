@@ -1,0 +1,117 @@
+cbox performance:
+4 clusters
+
+Gbuffer:    0.346005
+Misc:       0.336461
+Paraboloid: 0.287389
+Shade:      3.776563
+Denoise:    3.361126
+
+cbox performance:
+4 clusters
+
+Gbuffer:    0.277816
+Misc:       0.306526
+Paraboloid: 0.236794
+Shade:      3.161387
+Denoise:    2.883200
+
+cbox performance:
+8 clusters
+
+Gbuffer:    0.338340
+Misc:       0.504704
+Paraboloid: 0.281455
+Shade:      3.745749
+Denoise:    3.464806
+
+cbox performance:
+16 clusters
+
+Gbuffer:    0.337930
+Misc:       0.569242
+Paraboloid: 0.953903
+Shade:      3.767757
+Denoise:    3.401225
+
+cbox performance:
+32 clusters
+
+Gbuffer:    0.331763
+Misc:       0.616047
+Paraboloid: 6.631870
+Shade:      3.642283
+Denoise:    3.319040
+
+conf performance:
+4 clusters
+
+Gbuffer:    1.515643
+Misc:       0.341521
+Paraboloid: 1.549245
+Shade:      3.881370
+Denoise:    3.799287
+
+conf performance:
+8 clusters
+
+Gbuffer:    1.380849
+Misc:       0.272187
+Paraboloid: 3.034058
+Shade:      3.873016
+Denoise:    3.521535
+
+conf performance:
+16 clusters
+
+Gbuffer:    1.355796
+Misc:       0.340539
+Paraboloid: 9.456888
+Shade:      3.808120
+Denoise:    3.441869
+
+conf performance:
+32 clusters
+
+Gbuffer:    1.277553
+Misc:       0.374315
+Paraboloid: 73.232397
+Shade:      3.595588
+Denoise:    3.259503
+
+sibenik performance:
+4 clusters
+
+Gbuffer:    0.646453
+Misc:       0.314564
+Paraboloid: 0.554428
+Shade:      3.715226
+Denoise:    3.379814
+
+sibenik performance:
+8 clusters
+
+Gbuffer:    0.659234
+Misc:       0.256734
+Paraboloid: 1.136615
+Shade:      3.647121
+Denoise:    3.407735
+
+sibenik performance:
+16 clusters
+
+Gbuffer:    0.642018
+Misc:       0.261649
+Paraboloid: 2.945456
+Shade:      3.627452
+Denoise:    3.427268
+
+sibenik performance:
+32 clusters
+
+Gbuffer:    0.631159
+Misc:       0.368717
+Paraboloid: 19.959350
+Shade:      3.649758
+Denoise:    3.315857
+

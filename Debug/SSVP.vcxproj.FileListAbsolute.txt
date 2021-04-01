@@ -1,0 +1,6 @@
+C:\Users\Vitor\Documents\Masters\SSVP\Debug\SSVP.vcxproj.CopyComplete
+C:\Users\Vitor\Documents\Masters\SSVP\Debug\SSVP.exe
+C:\Users\Vitor\Documents\Masters\SSVP\Debug\SSVP.pdb
+C:\Users\Vitor\Documents\Masters\SSVP\Debug\assimp-vc140-mtd.dll
+C:\Users\Vitor\Documents\Masters\SSVP\Debug\glew32d.dll
+C:\Users\Vitor\Documents\Masters\SSVP\Debug\glfw3.dll

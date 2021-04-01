@@ -1,0 +1,2 @@
+gbuffer=deferred_render.vshader,deferred_render.fshader
+rsm=rsm.vshader,rsm.fshader

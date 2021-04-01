@@ -1,0 +1,92 @@
+#version 430
+
+layout(local_size_x = 16) in;
+
+layout(binding = 0) uniform sampler2D rsm_pos;
+layout(binding = 1) uniform sampler2D rsm_normal;
+layout(binding = 2) uniform sampler2D rsm_albedo;
+
+struct VPL {
+	vec4 p;
+	vec4 n;
+	vec4 c;
+};
+
+layout(std430, binding = 0) writeonly buffer light_buffer {
+	VPL list[];
+};
+
+layout(std430, binding = 1) readonly buffer CDF_COLS {
+	float cdf_cols[256][256];
+};
+layout(std430, binding = 2) readonly buffer CDF_ROW {
+	float cdf_row[256];
+};
+
+//random numbers
+layout(rg32f, binding = 3) uniform imageBuffer CDF_RAND_TBO;
+
+uniform int num_vpls; //vpl budget, how many Im extracting from the brsm
+uniform int RSM_W; // dimension or resolution of brsm, cdf ...
+uniform int RSM_H; // dimension or resolution of brsm, cdf ...
+
+void main() {
+
+	int idx = int(gl_GlobalInvocationID.x);
+	vec2 st = imageLoad(CDF_RAND_TBO, idx).xy;
+	vec2 v;
+	//search row
+	float max_row = cdf_row[RSM_W - 1];
+	//scale value 
+	v.x = max_row * st.x;
+	int l = 0;	int r = RSM_W - 1;	
+
+	while (l < r) {
+		int m = l + (r - l) / 2;
+		float cdf_m = cdf_row[m];
+		if (cdf_m <= v.x)
+		{
+			l = m + 1;
+		}
+		else
+		{
+			r = m;
+		}
+	}	
+	//row 
+	float curr_cdf = cdf_row[l];
+	ivec2 vpl_pos; vpl_pos.x = l;
+	float prev_cdf = (l - 1) < 0 ? (0.0) : (cdf_row[l - 1]);
+	float pdf_row = (curr_cdf - prev_cdf) / max_row;
+	
+	float max_col = cdf_cols[vpl_pos.x][RSM_W - 1];
+	v.y = max_col * st.y;
+
+	l = 0; r = RSM_W - 1;
+	while (l < r) {
+		int m = l + (r - l) / 2;
+		float cdf_m = cdf_cols[vpl_pos.x][m];
+		if (cdf_m <= v.y)
+		{
+			l = m + 1;
+		}
+		else
+		{
+			r = m;
+		}
+	}
+	
+	vpl_pos.y = l;
+	curr_cdf = cdf_cols[vpl_pos.x][vpl_pos.y];
+	prev_cdf = (vpl_pos.y - 1) < 0 ? 0.f : cdf_cols[vpl_pos.x][vpl_pos.y - 1];
+	float pdf_col = (curr_cdf - prev_cdf) / max_col;
+	float pdf_ij = pdf_row * pdf_col;
+	
+	vec4 pos = vec4(texelFetch(rsm_pos, vpl_pos, 0).xyz, pdf_ij);
+	vec4 normal = vec4(texelFetch(rsm_normal, vpl_pos, 0).xyz, 0.0);
+	vec4 flux = vec4(texelFetch(rsm_albedo, vpl_pos, 0).xyz, 1.0);
+	
+	//sample vpl back and store
+	VPL vpl = VPL(pos, normal, flux);
+	list[idx] = vpl;//invert_cdf(st, idx);
+}

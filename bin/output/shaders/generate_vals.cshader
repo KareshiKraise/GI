@@ -1,0 +1,41 @@
+#version 430
+
+//rel num val clusters
+layout(local_size_x = 1) in;
+
+uniform int num_vpls;
+uniform int num_clusters;
+
+struct plight {
+	vec4 p;
+	vec4 n;
+	vec4 c;
+};
+
+//val list
+layout(std430, binding = 0) buffer val_buffer {
+	plight val_list[];
+};
+
+//first bounce vpl list
+layout(std430, binding = 1) buffer vpl_buffer {
+	plight vpl_list[];
+};
+
+
+void main()
+{
+	//the k-val is the (k*N/M)th vpl
+	uint k = gl_GlobalInvocationID.x;
+	uint N = num_vpls;
+	uint M = num_clusters;
+
+	uint index = k * (N / M);
+
+	plight curr = vpl_list[index];
+	vec4 pos = curr.p;	
+	vec4 nor = curr.n;
+	vec4 col = curr.c;
+
+	val_list[gl_GlobalInvocationID.x] = plight(pos, nor, col);
+}

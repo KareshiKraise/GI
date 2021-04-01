@@ -1,0 +1,4 @@
+C:\Users\Vitor\Documents\Masters\SSVP\bin\output\assimp-vc140-mt.dll
+C:\Users\Vitor\Documents\Masters\SSVP\bin\output\glew32.dll
+C:\Users\Vitor\Documents\Masters\SSVP\bin\output\glfw3.dll
+C:\Users\Vitor\Documents\Masters\SSVP\bin\intermediates\SSVP.vcxproj.CopyComplete

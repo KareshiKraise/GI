@@ -1,0 +1,299 @@
+sibenik performance:
+8 clusters
+
+Gbuffer:    0.641513
+Misc:       0.253461
+Paraboloid: 0.682257
+Shade:      6.177809
+Denoise:    3.316113
+
+sibenik performance:
+4 clusters
+
+Gbuffer:    0.653297
+Misc:       0.337487
+Paraboloid: 0.328842
+Shade:      6.236621
+Denoise:    3.410679
+
+sibenik performance:
+16 clusters
+
+Gbuffer:    0.640300
+Misc:       0.290470
+Paraboloid: 2.099849
+Shade:      6.381824
+Denoise:    3.355153
+
+sibenik performance:
+32 clusters
+
+Gbuffer:    0.634779
+Misc:       0.394006
+Paraboloid: 16.466870
+Shade:      6.473429
+Denoise:    3.300958
+
+sibenik performance:
+32 clusters
+
+Gbuffer:    0.648528
+Misc:       0.296857
+Paraboloid: 16.456735
+Shade:      6.499686
+Denoise:    3.303006
+
+sibenik performance:
+32 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sibenik performance:
+32 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sibenik performance:
+32 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sibenik performance:
+32 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sibenik performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sibenik performance:
+16 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sibenik performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sibenik performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sibenik performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+cbox performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+cbox performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+cbox performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sibenik performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sibenik performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sibenik performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sibenik performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+cbox performance:
+4 clusters
+cbox performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+cbox performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+cbox performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+conference performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+conf performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+conf performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+conf performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+conf performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+conf performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+conf performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+conf performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+conf performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+

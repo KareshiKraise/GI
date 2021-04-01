@@ -1,0 +1,27 @@
+sponza performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sponza performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+
+sponza performance:
+4 clusters
+
+Gbuffer:    0.000000
+Misc:       0.000000
+Paraboloid: 0.000000
+Shade:      0.000000
+Denoise:    0.000000
+

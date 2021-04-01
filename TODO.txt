@@ -1,0 +1,6 @@
+1 - BRSM with visibility
+2 - IMH 2nd bounces
+3 - ISM from 2nd bounces
+x 9,7788 
+y 0,1234
+z 13,257

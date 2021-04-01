@@ -1,0 +1,57 @@
+#version 430
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0) uniform sampler2D gpos;
+layout(binding = 1) uniform sampler2D gnormal;
+layout(binding = 2) uniform sampler2D galbedo;
+
+layout(binding = 3) uniform sampler2D rsm_pos;
+layout(binding = 4) uniform sampler2D rsm_normal;
+layout(binding = 5) uniform sampler2D rsm_albedo;
+
+layout(std430, binding = 0) readonly buffer viewportSamples {
+	vec2 samples[];
+};
+
+layout(std430, binding = 1) writeonly buffer BRSM {
+	float brsm_map[][256];
+};
+
+uniform int numViewSamples;
+uniform float RSM_W;
+uniform float RSM_H;
+
+void main(void) {		
+
+	//compute average
+	float avg = 0.f;
+	ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+	vec2 uv = vec2((float(p.x) + 0.5f) / RSM_W, (float(p.y) + 0.5f) / RSM_H );
+	vec3 vpl_pos = texture2D(rsm_pos, uv).xyz;
+	vec3 vpl_normal = texture2D(rsm_normal, uv).xyz;
+	
+	float vpl_flux = 10.0f;
+
+	for (int i = 0; i < numViewSamples; ++i)
+	{
+		vec3 scrn_pos = texture2D(gpos, samples[i]).xyz;
+		vec3 scrn_n = texture2D(gnormal, samples[i]).xyz;		
+
+		vec3 val_to_vs = normalize(vpl_pos - scrn_pos);
+		vec3 vs_to_val = normalize(scrn_pos - vpl_pos);
+		float dist = length(vpl_pos - scrn_pos);
+		dist = dist < 1.0f ? 1.0f : dist;
+		//if (dist < 1.0f)
+		//{
+		//	dist = 1.0f;
+		//}
+
+		avg += vpl_flux * abs(dot(vpl_normal, vs_to_val)) * abs(dot(scrn_n, val_to_vs)) / (dist * dist);
+		//avg += vpl_flux * max(dot(vpl_normal, vs_to_val), 0.0f) * max(dot(scrn_n, val_to_vs), 0.0f) / (dist*dist);
+	}
+	avg /= numViewSamples;
+
+	brsm_map[gl_GlobalInvocationID.x][gl_GlobalInvocationID.y] = avg;
+}
+

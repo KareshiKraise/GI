@@ -1,0 +1,53 @@
+#version 430
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+//back gbuffer
+layout(binding = 0)	uniform sampler2DArray prsm_pos;
+layout(binding = 1)	uniform sampler2DArray prsm_norm;
+layout(binding = 2)	uniform sampler2DArray prsm_flux;
+
+//screen samples between 0.0 and 1.0
+layout(rg32f, binding = 0) uniform imageBuffer samples;
+
+struct plight {
+	vec4 p;
+	vec4 n;
+	vec4 c;
+};
+
+layout(std430, binding = 0) buffer vpls_2ndBounce {
+	plight vpl_list_2ndBounce[];
+};
+
+layout(std430, binding = 1) buffer vpl_count_2ndBounce {
+	unsigned int vpl_count;
+};
+
+uniform float vpl_radius;
+
+void main() {
+
+	
+	float SECOND_BOUNCE_RAD = vpl_radius;
+
+	vec2 uv = imageLoad(samples, int(gl_LocalInvocationIndex)).rg;
+
+	uint id = gl_WorkGroupID.x;
+
+	vec3 p = texture(prsm_pos, vec3(uv, id)).xyz;
+	vec4 n = texture(prsm_norm, vec3(uv, id));
+	vec4 c = texture(prsm_flux, vec3(uv, id));
+
+	uint idx = atomicAdd(vpl_count, 1);
+
+	//uint wid = gl_WorkGroupSize.x * gl_NumWorkGroups.x;
+	//uint light_id = gl_GlobalInvocationID.y * wid + gl_GlobalInvocationID.x;
+
+	uint light_id = gl_WorkGroupID.x * ((gl_WorkGroupSize.x) * (gl_WorkGroupSize.y)) + gl_LocalInvocationIndex;
+
+	vpl_list_2ndBounce[light_id] = plight(vec4(p, SECOND_BOUNCE_RAD), n, c);
+}
+
+
+
